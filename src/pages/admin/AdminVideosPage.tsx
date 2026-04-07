@@ -49,15 +49,17 @@ export default function AdminVideosPage() {
   const filterCourse = courses.find((c) => c.id === filterCourseId);
   const selectedSubject = selectedCourse?.subjects?.find((s) => s.subjectId === subjectId);
 
+  const [isLive, setIsLive] = useState(false);
+
   const resetForm = () => {
-    setCourseId(""); setSubjectId(""); setChapterId(""); setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setEditVideo(null);
+    setCourseId(""); setSubjectId(""); setChapterId(""); setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setEditVideo(null); setIsLive(false);
   };
 
   const openAdd = () => { resetForm(); setShowForm(true); };
 
   const openEdit = (v: Video) => {
     setEditVideo(v); setCourseId(v.courseId); setSubjectId(v.subjectId); setChapterId(v.chapterId || "");
-    setTitle(v.title); setThumbnail(v.thumbnail); setVideoURL(v.videoURL); setPdfURL(v.pdfURL); setShowForm(true);
+    setTitle(v.title); setThumbnail(v.thumbnail); setVideoURL(v.videoURL); setPdfURL(v.pdfURL); setIsLive(v.isLive || false); setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,7 +75,7 @@ export default function AdminVideosPage() {
       const data: any = {
         courseId, courseName: course?.courseName || "", subjectId, subjectName: subject?.subjectName || "",
         chapterId: chapterId || "", chapterName: chapter?.chapterName || "",
-        title, thumbnail, videoURL, pdfURL, createdAt: Timestamp.now(),
+        title, thumbnail, videoURL, pdfURL, isLive: isLive, createdAt: Timestamp.now(),
       };
       if (editVideo) {
         data.order = editVideo.order;
@@ -185,6 +187,13 @@ export default function AdminVideosPage() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground">PDF URL (Optional)</label>
                 <input type="text" placeholder="https://..." value={pdfURL} onChange={(e) => setPdfURL(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={isLive} onChange={(e) => setIsLive(e.target.checked)} className="sr-only peer" />
+                  <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-red-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+                <span className="text-sm font-medium text-foreground">🔴 Live Class</span>
               </div>
             </div>
           </div>
