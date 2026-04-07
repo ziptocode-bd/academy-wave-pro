@@ -443,11 +443,16 @@ function VideoListItem({ v, videoId, settings }: { v: Video; videoId?: string; s
   return (
     <button onClick={() => navigate(`/video/${v.id}`)}
       className={`flex gap-3 w-full text-left p-2 rounded-md ${v.id === videoId ? "bg-accent border border-primary/30" : "hover:bg-accent"}`}>
-      {v.thumbnail ? (
-        <img src={v.thumbnail} alt="" className="w-28 h-16 object-cover rounded-md flex-shrink-0" />
-      ) : (
-        <div className="w-28 h-16 bg-muted rounded-md flex-shrink-0" />
-      )}
+      <div className="relative w-28 h-16 flex-shrink-0">
+        {v.thumbnail ? (
+          <img src={v.thumbnail} alt="" className="w-full h-full object-cover rounded-md" />
+        ) : (
+          <div className="w-full h-full bg-muted rounded-md" />
+        )}
+        {v.isLive && (
+          <span className="absolute top-1 left-1 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">LIVE</span>
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium line-clamp-2 ${v.id === videoId ? "text-primary" : "text-foreground"}`}>{v.title}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{settings.appName || "Darpan Academy"}</p>
