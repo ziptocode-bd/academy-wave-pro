@@ -245,8 +245,9 @@
   <a href="#" class="nav-logo">LMS<span>PRO</span></a>
   <ul class="nav-links">
     <li><a href="#features">ফিচার</a></li>
+    <li><a href="#mockups">প্রিভিউ</a></li>
     <li><a href="#exam">পরীক্ষা</a></li>
-    <li><a href="#pricing">মূল্য</a></li>
+    <li><a href="#guide">গাইড</a></li>
     <li><a href="#demo">ডেমো</a></li>
     <li><a href="#contact" class="nav-cta">যোগাযোগ করুন</a></li>
   </ul>
@@ -256,8 +257,9 @@
 </nav>
 <div class="mobile-menu" id="mobileMenu">
   <a href="#features" onclick="toggleMenu()">ফিচার</a>
+  <a href="#mockups" onclick="toggleMenu()">প্রিভিউ</a>
   <a href="#exam" onclick="toggleMenu()">পরীক্ষা নিরাপত্তা</a>
-  <a href="#pricing" onclick="toggleMenu()">মূল্য</a>
+  <a href="#guide" onclick="toggleMenu()">গাইড</a>
   <a href="#demo" onclick="toggleMenu()">ডেমো</a>
   <a href="#contact" onclick="toggleMenu()">যোগাযোগ করুন</a>
 </div>
@@ -498,6 +500,177 @@
   </div>
 </section>
 
+<!-- MOCKUPS SECTION -->
+<section class="demo-section" id="mockups" style="background:var(--section-alt);">
+  <div class="container">
+    <div class="fade-up">
+      <p class="section-tag">স্ক্রিনশট প্রিভিউ</p>
+      <h2 class="section-title">অ্যাডমিন ও স্টুডেন্ট প্যানেল দেখুন</h2>
+      <p class="section-subtitle">বাস্তব UI ডিজাইন — দুটি প্যানেলের গুরুত্বপূর্ণ পেজগুলোর mockup।</p>
+      <div class="features-tabs" style="margin-bottom:2rem;">
+        <button class="tab-btn active" onclick="switchMockupTab('admin-mock',event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          অ্যাডমিন <span class="tab-panel-label">ADMIN</span>
+        </button>
+        <button class="tab-btn" onclick="switchMockupTab('student-mock',event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          স্টুডেন্ট <span class="tab-panel-label">STUDENT</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="tab-admin-mock" class="tab-content active">
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+        <div class="feature-card fade-up" style="padding:0; overflow:hidden;">
+          <div style="background:var(--black); color:var(--white); padding:0.75rem 1rem; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:0.5rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Admin Dashboard
+          </div>
+          <div style="padding:1rem;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+              <div style="background:var(--gray-100); border-radius:8px; padding:0.6rem;"><div style="font-size:1.4rem; font-weight:800; font-family:'Bebas Neue';">245</div><div style="font-size:0.65rem; color:var(--gray-400);">Total Students</div></div>
+              <div style="background:var(--gray-100); border-radius:8px; padding:0.6rem;"><div style="font-size:1.4rem; font-weight:800; font-family:'Bebas Neue'; color:#e53935;">12</div><div style="font-size:0.65rem; color:var(--gray-400);">Pending</div></div>
+              <div style="background:var(--gray-100); border-radius:8px; padding:0.6rem;"><div style="font-size:1.4rem; font-weight:800; font-family:'Bebas Neue';">8</div><div style="font-size:0.65rem; color:var(--gray-400);">Courses</div></div>
+              <div style="background:var(--gray-100); border-radius:8px; padding:0.6rem;"><div style="font-size:1.4rem; font-weight:800; font-family:'Bebas Neue';">156</div><div style="font-size:0.65rem; color:var(--gray-400);">Videos</div></div>
+            </div>
+            <div style="background:var(--gray-100); border-radius:8px; padding:0.6rem; font-size:0.7rem;">
+              <div style="font-weight:600; margin-bottom:0.3rem;">Recent Activity</div>
+              <div style="color:var(--gray-400); font-size:0.65rem;">✅ Karim approved • 📹 New video added • 📝 Exam created</div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-card fade-up" style="padding:0; overflow:hidden;">
+          <div style="background:var(--black); color:var(--white); padding:0.75rem 1rem; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:0.5rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            User Management
+          </div>
+          <div style="padding:0.75rem;">
+            <div style="display:flex; gap:0.4rem; margin-bottom:0.6rem;">
+              <div style="background:var(--gray-100); border-radius:6px; padding:0.3rem 0.6rem; font-size:0.65rem; font-weight:600;">All (245)</div>
+              <div style="background:#fef2f2; border-radius:6px; padding:0.3rem 0.6rem; font-size:0.65rem; font-weight:600; color:#e53935;">Pending (12)</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0.35rem;">
+              <div style="background:var(--gray-100); border-radius:6px; padding:0.5rem; display:flex; align-items:center; justify-content:space-between;"><div><div style="font-size:0.72rem; font-weight:600;">Rahim Ahmed</div><div style="font-size:0.6rem; color:var(--gray-400);">HSC 25 • bKash</div></div><div style="display:flex;gap:0.3rem;"><span style="background:#dcfce7;color:#16a34a;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:600;">Approve</span><span style="background:#fef2f2;color:#dc2626;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:600;">Reject</span></div></div>
+              <div style="background:var(--gray-100); border-radius:6px; padding:0.5rem; display:flex; align-items:center; justify-content:space-between;"><div><div style="font-size:0.72rem; font-weight:600;">Fatima Begum</div><div style="font-size:0.6rem; color:var(--gray-400);">HSC 26 • Nagad</div></div><div style="display:flex;gap:0.3rem;"><span style="background:#dcfce7;color:#16a34a;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:600;">Approve</span><span style="background:#fef2f2;color:#dc2626;font-size:0.55rem;padding:2px 6px;border-radius:4px;font-weight:600;">Reject</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-card fade-up" style="padding:0; overflow:hidden;">
+          <div style="background:var(--black); color:var(--white); padding:0.75rem 1rem; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:0.5rem;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            Video + Live Class
+          </div>
+          <div style="padding:0.75rem;">
+            <div style="display:flex; flex-direction:column; gap:0.35rem;">
+              <div style="background:var(--gray-100); border-radius:6px; padding:0.5rem; display:flex; align-items:center; gap:0.6rem;">
+                <div style="width:48px;height:30px;background:var(--gray-200);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--gray-400)"><polygon points="5,3 19,12 5,21"/></svg></div>
+                <div><div style="font-size:0.7rem; font-weight:600;">পদার্থবিজ্ঞান - গতিবিদ্যা</div><div style="font-size:0.6rem; color:var(--gray-400);">HSC 25 • Physics</div></div>
+              </div>
+              <div style="background:var(--gray-100); border-radius:6px; padding:0.5rem; display:flex; align-items:center; gap:0.6rem;">
+                <div style="width:48px;height:30px;background:#fef2f2;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.5rem;font-weight:700;color:#dc2626;">LIVE</div>
+                <div><div style="font-size:0.7rem; font-weight:600;">🔴 রসায়ন লাইভ ক্লাস</div><div style="font-size:0.6rem; color:var(--gray-400);">HSC 25 • Chemistry</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-student-mock" class="tab-content">
+      <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+        <div class="feature-card fade-up" style="padding:0; overflow:hidden;">
+          <div style="background:var(--black); color:var(--white); padding:0.75rem 1rem; font-size:0.75rem; font-weight:600;">Classroom</div>
+          <div style="padding:0.75rem;">
+            <div style="display:flex; gap:0.35rem; margin-bottom:0.6rem; overflow-x:auto;">
+              <span style="background:var(--black);color:var(--white);font-size:0.65rem;padding:4px 10px;border-radius:100px;font-weight:600;white-space:nowrap;">All</span>
+              <span style="background:var(--gray-100);font-size:0.65rem;padding:4px 10px;border-radius:100px;font-weight:500;white-space:nowrap;">Physics</span>
+              <span style="background:var(--gray-100);font-size:0.65rem;padding:4px 10px;border-radius:100px;font-weight:500;white-space:nowrap;">Chemistry</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem;">
+              <div style="background:var(--gray-100); border-radius:8px; overflow:hidden;"><div style="height:55px; background:var(--gray-200); display:flex; align-items:center; justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="var(--gray-400)"><polygon points="5,3 19,12 5,21"/></svg></div><div style="padding:0.4rem;"><div style="font-size:0.62rem; font-weight:600;">গতিবিদ্যা - ১</div><div style="font-size:0.55rem; color:var(--gray-400);">LMS Pro</div></div></div>
+              <div style="background:var(--gray-100); border-radius:8px; overflow:hidden;"><div style="height:55px; background:linear-gradient(135deg,#fef2f2,#fee2e2); display:flex; align-items:center; justify-content:center;"><span style="background:#dc2626;color:white;font-size:0.5rem;font-weight:700;padding:2px 5px;border-radius:3px;">🔴 LIVE</span></div><div style="padding:0.4rem;"><div style="font-size:0.62rem; font-weight:600;">রসায়ন লাইভ</div><div style="font-size:0.55rem; color:var(--gray-400);">LMS Pro</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-card fade-up" style="padding:0; overflow:hidden;">
+          <div style="background:var(--black); color:var(--white); padding:0.75rem 1rem; font-size:0.75rem; font-weight:600;">Video Player</div>
+          <div style="padding:0;">
+            <div style="background:var(--black); height:110px; display:flex; align-items:center; justify-content:center; position:relative;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="rgba(255,255,255,0.8)"><polygon points="5,3 19,12 5,21"/></svg>
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:0.4rem 0.6rem; background:linear-gradient(transparent, rgba(0,0,0,0.8)); display:flex; align-items:center; justify-content:space-between;">
+                <span style="color:rgba(255,255,255,0.6);font-size:0.55rem;">2:34 / 45:12</span>
+                <span style="color:white;font-size:0.55rem;font-weight:600;background:rgba(255,255,255,0.2);padding:1px 5px;border-radius:3px;">1.5x</span>
+              </div>
+            </div>
+            <div style="padding:0.6rem;">
+              <div style="font-size:0.72rem; font-weight:600; margin-bottom:0.4rem;">পদার্থবিজ্ঞান - গতিবিদ্যা</div>
+              <div style="display:flex; gap:0.3rem;">
+                <span style="background:var(--gray-100);font-size:0.6rem;padding:3px 8px;border-radius:5px;">⬅ Previous</span>
+                <span style="background:var(--gray-100);font-size:0.6rem;padding:3px 8px;border-radius:5px;">Next ➡</span>
+                <span style="background:var(--black);color:white;font-size:0.6rem;padding:3px 8px;border-radius:5px;">📄 PDF</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-card fade-up" style="padding:0; overflow:hidden;">
+          <div style="background:var(--black); color:var(--white); padding:0.75rem 1rem; font-size:0.75rem; font-weight:600;">Profile</div>
+          <div style="padding:1rem; text-align:center;">
+            <div style="width:48px;height:48px;background:var(--gray-200);border-radius:50%;margin:0 auto 0.5rem;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+            <div style="font-size:0.8rem; font-weight:700;">Rahim Ahmed</div>
+            <div style="font-size:0.65rem; color:var(--gray-400); margin-bottom:0.6rem;">rahim@gmail.com</div>
+            <div style="display:flex; flex-direction:column; gap:0.3rem; text-align:left;">
+              <div style="background:var(--gray-100); border-radius:6px; padding:0.4rem 0.6rem; font-size:0.65rem; display:flex; justify-content:space-between;"><span style="color:var(--gray-400);">Course</span><span style="font-weight:600;">HSC 2025</span></div>
+              <div style="background:var(--gray-100); border-radius:6px; padding:0.4rem 0.6rem; font-size:0.65rem; display:flex; justify-content:space-between;"><span style="color:var(--gray-400);">Status</span><span style="font-weight:600; color:#16a34a;">Approved</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- USER MANUAL -->
+<section style="background:var(--white); padding:90px 5%;" id="guide">
+  <div class="container">
+    <div class="fade-up">
+      <p class="section-tag">ইউজার ম্যানুয়াল</p>
+      <h2 class="section-title">সম্পূর্ণ ব্যবহার নির্দেশিকা</h2>
+      <p class="section-subtitle">অ্যাডমিন এবং স্টুডেন্ট উভয়ের জন্য ধাপে ধাপে গাইড।</p>
+    </div>
+    <div style="margin-top:3rem;">
+      <h3 style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:1px; margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem;">
+        <span style="background:var(--black);color:var(--white);width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+        অ্যাডমিন গাইড
+      </h3>
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="feature-card fade-up" style="border-left:4px solid var(--black);"><div class="feature-title">১. প্রথম লগইন ও সেটআপ</div><div class="feature-desc">অ্যাডমিন ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন। প্রথমে <strong>Settings</strong> পেজে যান — অ্যাপের নাম, লোগো, পেমেন্ট মেথড ও সোশ্যাল লিংক সেটআপ করুন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--black);"><div class="feature-title">২. কোর্স তৈরি</div><div class="feature-desc"><strong>Courses</strong> পেজে "Add Course" ক্লিক করুন। কোর্সের নাম, থাম্বনেইল, মূল্য, বিষয় ও চ্যাপ্টার, ইন্সট্রাক্টর ও ডিসকাশন গ্রুপ যোগ করুন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--black);"><div class="feature-title">৩. ভিডিও আপলোড</div><div class="feature-desc"><strong>Videos → Add</strong> পেজে কোর্স ও সাবজেক্ট সিলেক্ট করুন। YouTube URL, থাম্বনেইল ও PDF দিন। <strong>"🔴 Live Class"</strong> টগল অন করলে লাইভ হিসেবে দেখাবে।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--black);"><div class="feature-title">৪. স্টুডেন্ট অ্যাপ্রুভ</div><div class="feature-desc"><strong>Users</strong> পেজে পেন্ডিং স্টুডেন্টদের পেমেন্ট যাচাই করে Approve/Reject করুন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--black);"><div class="feature-title">৫. পরীক্ষা তৈরি</div><div class="feature-desc"><strong>Exams → Add</strong> এ MCQ/Written প্রশ্ন, সময়কাল, পাস ও নেগেটিভ মার্ক সেট করুন। নির্ধারিত সময়ে স্বয়ংক্রিয় শুরু/শেষ।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--black);"><div class="feature-title">৬. লাইভ ক্লাস</div><div class="feature-desc">YouTube এ লাইভ শুরু করুন → ভিডিও পেজে URL দিন ও Live টগল অন করুন। লাইভ শেষ হলে রেকর্ডেড হিসেবে থাকবে।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--black);"><div class="feature-title">৭. ব্যাকআপ</div><div class="feature-desc"><strong>Data</strong> পেজে Export/Import করে সম্পূর্ণ ডেটা ব্যাকআপ ও পুনরুদ্ধার করুন।</div></div>
+      </div>
+    </div>
+    <div style="margin-top:4rem;">
+      <h3 style="font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:1px; margin-bottom:1.5rem; display:flex; align-items:center; gap:0.5rem;">
+        <span style="background:var(--black);color:var(--white);width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+        স্টুডেন্ট গাইড
+      </h3>
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">১. রেজিস্ট্রেশন</div><div class="feature-desc">কোর্স সিলেক্ট → "Enroll" → নাম, ইমেইল, পাসওয়ার্ড দিন → পেমেন্ট করে ট্রানজেকশন ID/স্ক্রিনশট সাবমিট করুন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">২. অ্যাপ্রুভাল অপেক্ষা</div><div class="feature-desc">স্ট্যাটাস "Pending" থাকবে। অ্যাডমিন অ্যাপ্রুভ করলে সকল কন্টেন্ট দেখতে পারবেন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">৩. ক্লাসরুম</div><div class="feature-desc"><strong>Classroom</strong> পেজে সাবজেক্ট চিপে ক্লিক করে ফিল্টার করুন। ভিডিও কার্ডে ক্লিক করে প্লে করুন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">৪. ভিডিও দেখুন</div><div class="feature-desc">কাস্টম কন্ট্রোল: Play/Pause, ±10s Seek, Speed (1x→2x), Fullscreen। মোবাইলে ডাবল ট্যাপে Seek। PDF বাটনে ক্লাস নোট ডাউনলোড।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">৫. লাইভ ক্লাস</div><div class="feature-desc">🔴 LIVE ব্যাজ দেখলে ক্লিক করুন — সরাসরি দেখুন। লাইভ শেষ হলে রেকর্ডেড হিসেবে দেখতে পারবেন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">৬. পরীক্ষা</div><div class="feature-desc"><strong>Exams</strong> পেজে চলমান পরীক্ষায় Start করুন। সময় শেষে অটো-সাবমিট। ⚠️ ট্যাব সুইচে অটো-সাবমিট হতে পারে।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">৭. প্রোফাইল</div><div class="feature-desc"><strong>Profile</strong> পেজে নাম, ইমেইল দেখুন। পাসওয়ার্ড রিসেট ও Active Course পরিবর্তন করুন।</div></div>
+        <div class="feature-card fade-up" style="border-left:4px solid var(--gray-400);"><div class="feature-title">৮. অ্যাপ ইনস্টল</div><div class="feature-desc">টপ বারে Install বাটনে ক্লিক করুন — Android, iOS, Desktop সবখানে কাজ করবে!</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- DEMO -->
 <section class="demo-section" id="demo">
   <div class="container">
@@ -674,6 +847,15 @@
   function switchTab(tab, e) {
     document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
     document.querySelectorAll('.tab-content').forEach(function(c){ c.classList.remove('active'); });
+    document.getElementById('tab-'+tab).classList.add('active');
+    if (e && e.currentTarget) e.currentTarget.classList.add('active');
+  }
+
+  /* ── MOCKUP TABS ── */
+  function switchMockupTab(tab, e) {
+    var parent = e.currentTarget.closest('.container');
+    parent.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    parent.querySelectorAll('.tab-content').forEach(function(c){ c.classList.remove('active'); });
     document.getElementById('tab-'+tab).classList.add('active');
     if (e && e.currentTarget) e.currentTarget.classList.add('active');
   }

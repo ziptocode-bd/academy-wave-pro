@@ -4,14 +4,22 @@ import { examDb } from "@/lib/examFirebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam } from "@/types/exam";
 import { getCachedCollection } from "@/lib/firestoreCache";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Clock, CheckCircle, AlertCircle, BookOpen } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { FloatingButtons } from "@/components/FloatingButtons";
 
 export default function ExamListPage() {
-  const { userDoc } = useAuth();
+  const { user, userDoc, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth?mode=login");
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (!userDoc?.activeCourseId) return;
@@ -35,6 +43,19 @@ export default function ExamListPage() {
     return "ended";
   };
 
+  if (authLoading) {
+    return (
+      <div className="p-4 max-w-2xl mx-auto space-y-3">
+        <Skeleton className="h-7 w-32 mb-4" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
   if (!userDoc?.activeCourseId) {
     return (
       <div className="p-4 text-center">
@@ -50,7 +71,11 @@ export default function ExamListPage() {
       </h1>
 
       {loading ? (
-        <p className="text-muted-foreground text-sm text-center py-8">Loading...</p>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+          ))}
+        </div>
       ) : exams.length === 0 ? (
         <p className="text-muted-foreground text-sm text-center py-8">No exams available for this course.</p>
       ) : (
