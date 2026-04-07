@@ -851,6 +851,15 @@
     if (e && e.currentTarget) e.currentTarget.classList.add('active');
   }
 
+  /* ── MOCKUP TABS ── */
+  function switchMockupTab(tab, e) {
+    var parent = e.currentTarget.closest('.container');
+    parent.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    parent.querySelectorAll('.tab-content').forEach(function(c){ c.classList.remove('active'); });
+    document.getElementById('tab-'+tab).classList.add('active');
+    if (e && e.currentTarget) e.currentTarget.classList.add('active');
+  }
+
   /* ── WHATSAPP ── */
   function sendWhatsApp() {
     var name = document.getElementById('wa-name').value.trim();
