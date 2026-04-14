@@ -578,14 +578,14 @@ export default function ExamTakePage() {
               ...(exam.passMark > 0 ? [{ label: "পাস নম্বর", value: exam.passMark }] : []),
               {
                 label: "শুরু",
-                value: exam.startTime?.toDate?.()?.toLocaleString("en-US", {
+                value: safeToDate(exam.startTime)?.toLocaleString("en-US", {
                   hour: "numeric", minute: "2-digit", hour12: true,
                   month: "short", day: "numeric", year: "numeric",
                 }),
               },
               {
                 label: "শেষ",
-                value: exam.endTime?.toDate?.()?.toLocaleString("en-US", {
+                value: safeToDate(exam.endTime)?.toLocaleString("en-US", {
                   hour: "numeric", minute: "2-digit", hour12: true,
                   month: "short", day: "numeric", year: "numeric",
                 }),
