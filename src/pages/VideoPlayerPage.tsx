@@ -354,7 +354,15 @@ export default function VideoPlayerPage() {
           </div>
 
           <div className="p-4">
-            <h2 className="font-semibold text-foreground">{video.title}</h2>
+            <div className="flex items-center gap-2">
+              {video.isLive && (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  LIVE
+                </span>
+              )}
+              <h2 className="font-semibold text-foreground">{video.title}</h2>
+            </div>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <button onClick={() => prevVideo && navigate(`/video/${prevVideo.id}`)} disabled={!prevVideo}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-md bg-card border border-border text-foreground disabled:opacity-30">
@@ -443,11 +451,19 @@ function VideoListItem({ v, videoId, settings }: { v: Video; videoId?: string; s
   return (
     <button onClick={() => navigate(`/video/${v.id}`)}
       className={`flex gap-3 w-full text-left p-2 rounded-md ${v.id === videoId ? "bg-accent border border-primary/30" : "hover:bg-accent"}`}>
-      {v.thumbnail ? (
-        <img src={v.thumbnail} alt="" className="w-28 h-16 object-cover rounded-md flex-shrink-0" />
-      ) : (
-        <div className="w-28 h-16 bg-muted rounded-md flex-shrink-0" />
-      )}
+      <div className="relative w-28 h-16 flex-shrink-0">
+        {v.thumbnail ? (
+          <img src={v.thumbnail} alt="" className="w-full h-full object-cover rounded-md" />
+        ) : (
+          <div className="w-full h-full bg-muted rounded-md" />
+        )}
+        {v.isLive && (
+          <span className="absolute top-0.5 left-0.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-600 text-white text-[8px] font-bold uppercase">
+            <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+            LIVE
+          </span>
+        )}
+      </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium line-clamp-2 ${v.id === videoId ? "text-primary" : "text-foreground"}`}>{v.title}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{settings.appName || "Darpan Academy"}</p>
