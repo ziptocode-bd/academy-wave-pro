@@ -157,6 +157,12 @@ export default function MyCoursesPage() {
                       No Thumbnail
                     </div>
                   )}
+                  {video.isLive && (
+                    <span className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide shadow-lg">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      LIVE
+                    </span>
+                  )}
                 </div>
                 <div className="px-3 py-2.5 sm:p-3">
                   <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">{video.title}</p>

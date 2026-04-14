@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { where } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam } from "@/types/exam";
-import { getCachedCollection } from "@/lib/firestoreCache";
 import { Link } from "react-router-dom";
 import { Clock, CheckCircle, AlertCircle, BookOpen } from "lucide-react";
 import { FloatingButtons } from "@/components/FloatingButtons";
@@ -48,7 +47,10 @@ export default function ExamListPage() {
     const fetchExams = async () => {
       setLoading(true);
       try {
-        const list = await getCachedCollection<Exam>(examDb, "exams", [where("courseId", "==", userDoc.activeCourseId)], `course_${userDoc.activeCourseId}`);
+        // Use getDocs directly to avoid cache issues with Timestamps
+        const q = query(collection(examDb, "exams"), where("courseId", "==", userDoc.activeCourseId));
+        const snap = await getDocs(q);
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Exam));
         list.sort((a, b) => (b.startTime?.toMillis?.() || 0) - (a.startTime?.toMillis?.() || 0));
         setExams(list);
       } catch (err) {

@@ -5,7 +5,7 @@ import { Course, Video } from "@/types";
 import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { toast } from "sonner";
 import { ImageUrlInput } from "@/components/ImageUrlInput";
-import { Film, CheckCircle } from "lucide-react";
+import { Film, CheckCircle, Radio } from "lucide-react";
 
 export default function AdminAddVideoPage() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -19,6 +19,7 @@ export default function AdminAddVideoPage() {
   const [pdfURL, setPdfURL] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -46,12 +47,12 @@ export default function AdminAddVideoPage() {
       await addDoc(collection(db, "videos"), {
         courseId, courseName: course?.courseName || "", subjectId, subjectName: subject?.subjectName || "",
         chapterId: chapterId || "", chapterName: chapter?.chapterName || "",
-        title, thumbnail, videoURL, pdfURL, order: maxOrder + 1, createdAt: Timestamp.now(),
+        title, thumbnail, videoURL, pdfURL, order: maxOrder + 1, isLive, createdAt: Timestamp.now(),
       });
       toast.success("Video added successfully!");
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
-      setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setChapterId("");
+      setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setChapterId(""); setIsLive(false);
       // Refresh videos for order calc
       invalidateCache("videos");
       const freshVideos = await getCachedCollection<Video>(db, "videos");
@@ -117,6 +118,19 @@ export default function AdminAddVideoPage() {
               <label className="text-xs font-medium text-muted-foreground">PDF URL (Optional)</label>
               <input type="text" placeholder="https://..." value={pdfURL} onChange={(e) => setPdfURL(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
             </div>
+
+            {/* Live Class Toggle */}
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
+              <div className={`w-10 h-5 rounded-full relative transition-colors ${isLive ? 'bg-red-500' : 'bg-muted'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isLive ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Radio className={`h-4 w-4 ${isLive ? 'text-red-500' : 'text-muted-foreground'}`} />
+                <span className={`text-sm font-medium ${isLive ? 'text-red-500' : 'text-muted-foreground'}`}>
+                  {isLive ? '🔴 Live Class' : 'Live Class'}
+                </span>
+              </div>
+            </label>
           </div>
         </div>
 

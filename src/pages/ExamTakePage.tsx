@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useExamSecurity, getDeviceInfo } from "@/hooks/useExamSecurity";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ExamTakePage() {
   const { examId } = useParams<{ examId: string }>();
@@ -250,7 +251,21 @@ export default function ExamTakePage() {
 
   const handleSubmit = handleSubmitInternal;
 
-  if (loading) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>;
+  if (loading) return (
+    <div className="p-4 max-w-lg mx-auto">
+      <Skeleton className="h-8 w-48 mb-4" />
+      <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+        <Skeleton className="h-6 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+        <div className="grid grid-cols-3 gap-3">
+          <Skeleton className="h-20 rounded-xl" />
+          <Skeleton className="h-20 rounded-xl" />
+          <Skeleton className="h-20 rounded-xl" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-xl" />
+      </div>
+    </div>
+  );
   if (!exam) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Exam not found</div>;
 
   if (examEntered && !existingSubmission && !started && !submitted) {
