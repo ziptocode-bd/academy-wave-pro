@@ -187,6 +187,19 @@ export default function AdminVideosPage() {
                 <label className="text-xs font-medium text-muted-foreground">PDF URL (Optional)</label>
                 <input type="text" placeholder="https://..." value={pdfURL} onChange={(e) => setPdfURL(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
               </div>
+
+              {/* Live Class Toggle */}
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
+                <div className={`w-10 h-5 rounded-full relative transition-colors ${isLive ? 'bg-red-500' : 'bg-muted'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isLive ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Radio className={`h-4 w-4 ${isLive ? 'text-red-500' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm font-medium ${isLive ? 'text-red-500' : 'text-muted-foreground'}`}>
+                    {isLive ? '🔴 Live Class' : 'Live Class'}
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
 
