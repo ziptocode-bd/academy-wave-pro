@@ -5,6 +5,7 @@ import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
 import { Exam, ExamQuestion } from "@/types/exam";
 import { Course } from "@/types";
+import { safeToDate } from "@/lib/timestampUtils";
 import { toast } from "sonner";
 import { Trash2, Plus, Upload, ChevronDown, ChevronUp, X, Image, Download, ExternalLink, FileText, CheckCircle, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -60,8 +61,10 @@ export default function AdminAddExamPage() {
         setDuration(exam.duration);
         setNegativeMark(exam.negativeMark || 0);
         setPassMark(exam.passMark || 0);
-        setStartTime(exam.startTime?.toDate?.()?.toISOString().slice(0, 16) || "");
-        setEndTime(exam.endTime?.toDate?.()?.toISOString().slice(0, 16) || "");
+        const startDate = safeToDate(exam.startTime);
+        const endDate = safeToDate(exam.endTime);
+        setStartTime(startDate ? startDate.toISOString().slice(0, 16) : "");
+        setEndTime(endDate ? endDate.toISOString().slice(0, 16) : "");
         setQuestions(exam.questions || []);
       }
       setLoading(false);

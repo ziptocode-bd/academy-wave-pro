@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { safeToDate } from "@/lib/timestampUtils";
 import { updateDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserDoc, EnrollRequest, Course } from "@/types";
@@ -111,8 +112,8 @@ export default function AdminUsersPage() {
             <div className="flex-1 min-w-0">
               <h2 className="text-base sm:text-lg font-semibold text-foreground truncate">{selectedUser.name}</h2>
               <p className="text-xs sm:text-sm text-muted-foreground truncate">{selectedUser.email}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Joined: {selectedUser.createdAt?.toDate?.()?.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) || "—"}
+               <p className="text-xs text-muted-foreground mt-0.5">
+                 Joined: {safeToDate(selectedUser.createdAt)?.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) || "—"}
               </p>
             </div>
           </div>
@@ -144,7 +145,7 @@ export default function AdminUsersPage() {
                               }`}>{reqStatus === "approved" ? "Approved" : reqStatus === "pending" ? "Pending" : "Rejected"}</span>
                               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
-                                {c.enrolledAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || "—"}
+                                {safeToDate(c.enrolledAt)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || "—"}
                               </span>
                             </div>
                           </div>

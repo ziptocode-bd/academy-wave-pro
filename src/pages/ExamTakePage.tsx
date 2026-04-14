@@ -5,6 +5,7 @@ import { examDb } from "@/lib/examFirebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam, ExamAnswer, ExamSubmission } from "@/types/exam";
 import { uploadToImgBB } from "@/lib/imgbb";
+import { safeToMillis, safeToDate } from "@/lib/timestampUtils";
 import { toast } from "sonner";
 import {
   Camera, Clock, ChevronLeft, ChevronRight, Send, Trophy, CheckCircle, XCircle,
@@ -139,8 +140,8 @@ export default function ExamTakePage() {
   };
 
   const now = Date.now();
-  const examStarted = exam ? (exam.startTime?.toMillis?.() || 0) <= now : false;
-  const examEnded = exam ? (exam.endTime?.toMillis?.() || 0) < now : false;
+  const examStarted = exam ? safeToMillis(exam.startTime) <= now : false;
+  const examEnded = exam ? safeToMillis(exam.endTime) < now : false;
 
   const startExam = async () => {
     if (!exam || !user) return;
@@ -577,14 +578,14 @@ export default function ExamTakePage() {
               ...(exam.passMark > 0 ? [{ label: "পাস নম্বর", value: exam.passMark }] : []),
               {
                 label: "শুরু",
-                value: exam.startTime?.toDate?.()?.toLocaleString("en-US", {
+                value: safeToDate(exam.startTime)?.toLocaleString("en-US", {
                   hour: "numeric", minute: "2-digit", hour12: true,
                   month: "short", day: "numeric", year: "numeric",
                 }),
               },
               {
                 label: "শেষ",
-                value: exam.endTime?.toDate?.()?.toLocaleString("en-US", {
+                value: safeToDate(exam.endTime)?.toLocaleString("en-US", {
                   hour: "numeric", minute: "2-digit", hour12: true,
                   month: "short", day: "numeric", year: "numeric",
                 }),

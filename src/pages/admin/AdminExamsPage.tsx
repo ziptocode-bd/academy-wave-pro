@@ -9,13 +9,14 @@ import { toast } from "sonner";
 import { Trash2, Edit, Eye, Plus, Download, Upload, Trophy, CheckCircle, XCircle, Image, Save, ArrowLeft, ZoomIn, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { safeToDate } from "@/lib/timestampUtils";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const formatTime12 = (d?: Date) => d?.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' }) || "";
+const formatTime12 = (d?: Date | null) => d?.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' }) || "";
 
 const PAGE_SIZE = 15;
 
@@ -389,8 +390,8 @@ export default function AdminExamsPage() {
           ) : (
             <div className="space-y-3">
               {paginatedExams.map(exam => {
-                const startTime = formatTime12(exam.startTime?.toDate?.());
-                const endTime = formatTime12(exam.endTime?.toDate?.());
+                const startTime = formatTime12(safeToDate(exam.startTime));
+                const endTime = formatTime12(safeToDate(exam.endTime));
                 const typeLabel = getExamTypeLabel(exam);
                 const typeColor =
                   typeLabel === "MCQ + Written"
