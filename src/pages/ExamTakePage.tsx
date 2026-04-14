@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useExamSecurity, getDeviceInfo } from "@/hooks/useExamSecurity";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ExamTakePage() {
   const { examId } = useParams<{ examId: string }>();

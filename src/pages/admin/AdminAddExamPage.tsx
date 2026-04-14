@@ -7,6 +7,7 @@ import { Exam, ExamQuestion } from "@/types/exam";
 import { Course } from "@/types";
 import { toast } from "sonner";
 import { Trash2, Plus, Upload, ChevronDown, ChevronUp, X, Image, Download, ExternalLink, FileText, CheckCircle, ArrowLeft } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /* ── Helpers ── */
 const FormSection = ({ icon: Icon, title, step, children }: { icon: any; title: string; step: number; children: React.ReactNode }) => (
