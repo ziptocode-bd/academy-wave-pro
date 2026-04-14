@@ -8,6 +8,7 @@ import { Course } from "@/types";
 import { toast } from "sonner";
 import { Trash2, Edit, Eye, Plus, Download, Upload, Trophy, CheckCircle, XCircle, Image, Save, ArrowLeft, ZoomIn, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
