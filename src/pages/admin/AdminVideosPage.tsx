@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 import { Video, Course } from "@/types";
 import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Film, Filter } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Film, Filter, Radio } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ImageUrlInput } from "@/components/ImageUrlInput";
 import { AdminVideoListSkeleton } from "@/components/skeletons/AdminSkeleton";
@@ -29,6 +29,7 @@ export default function AdminVideosPage() {
   const [thumbnail, setThumbnail] = useState("");
   const [videoURL, setVideoURL] = useState("");
   const [pdfURL, setPdfURL] = useState("");
+  const [isLive, setIsLive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -50,14 +51,14 @@ export default function AdminVideosPage() {
   const selectedSubject = selectedCourse?.subjects?.find((s) => s.subjectId === subjectId);
 
   const resetForm = () => {
-    setCourseId(""); setSubjectId(""); setChapterId(""); setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setEditVideo(null);
+    setCourseId(""); setSubjectId(""); setChapterId(""); setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setIsLive(false); setEditVideo(null);
   };
 
   const openAdd = () => { resetForm(); setShowForm(true); };
 
   const openEdit = (v: Video) => {
     setEditVideo(v); setCourseId(v.courseId); setSubjectId(v.subjectId); setChapterId(v.chapterId || "");
-    setTitle(v.title); setThumbnail(v.thumbnail); setVideoURL(v.videoURL); setPdfURL(v.pdfURL); setShowForm(true);
+    setTitle(v.title); setThumbnail(v.thumbnail); setVideoURL(v.videoURL); setPdfURL(v.pdfURL); setIsLive(v.isLive || false); setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,7 +74,7 @@ export default function AdminVideosPage() {
       const data: any = {
         courseId, courseName: course?.courseName || "", subjectId, subjectName: subject?.subjectName || "",
         chapterId: chapterId || "", chapterName: chapter?.chapterName || "",
-        title, thumbnail, videoURL, pdfURL, createdAt: Timestamp.now(),
+        title, thumbnail, videoURL, pdfURL, isLive, createdAt: Timestamp.now(),
       };
       if (editVideo) {
         data.order = editVideo.order;
