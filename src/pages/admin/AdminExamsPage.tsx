@@ -35,8 +35,13 @@ export default function AdminExamsPage() {
 
   const fetchExams = async () => {
     setLoading(true);
-    const snap = await getDocs(collection(examDb, "exams"));
-    setExams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Exam)));
+    try {
+      const snap = await getDocs(collection(examDb, "exams"));
+      setExams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Exam)));
+    } catch (err) {
+      console.error("Error fetching exams:", err);
+      toast.error("Failed to load exams");
+    }
     setLoading(false);
   };
 
@@ -361,7 +366,23 @@ export default function AdminExamsPage() {
           </select>
 
           {loading ? (
-            <p className="text-muted-foreground text-sm text-center py-8">Loading...</p>
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-card border border-border rounded-2xl overflow-hidden p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-32" />
+                  <div className="flex flex-wrap gap-1.5">
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-40" />
+                </div>
+              ))}
+            </div>
           ) : paginatedExams.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8">No exams yet</p>
           ) : (
