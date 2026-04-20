@@ -8,7 +8,7 @@ import { AppSettingsProvider } from "@/contexts/AppSettingsContext";
 import { AppLayout } from "@/components/AppLayout";
 import { ExternalRedirect } from "@/components/ExternalRedirect";
 import { ProtectedAdminRoute } from "@/components/ProtectedAdminRoute";
-import { GlobalSecurity } from "@/components/GlobalSecurity";
+
 import IndexRedirect from "@/pages/IndexRedirect";
 import HomePage from "@/pages/HomePage";
 import CourseDetailsPage from "@/pages/CourseDetailsPage";
@@ -40,7 +40,6 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <AppSettingsProvider>
-            <GlobalSecurity />
             <ExternalRedirect />
             <Routes>
               <Route element={<AppLayout />}>

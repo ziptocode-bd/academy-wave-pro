@@ -4,15 +4,31 @@ import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { Link } from "react-router-dom";
 import {
   Users, Clock, BookOpen, Video, Youtube,
-  HardDrive, FileText, TrendingUp, ArrowUpRight,
-  LayoutDashboard,
+  HardDrive, FileText, ArrowUpRight,
+  LayoutDashboard, BarChart3, UserPlus,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/skeletons/AdminSkeleton";
 import { getCachedCollection } from "@/lib/firestoreCache";
+import { safeToDate } from "@/lib/timestampUtils";
+
+interface RecentEnrollment {
+  id: string;
+  name: string;
+  courseName: string;
+  status: string;
+  createdAt: any;
+}
+
+interface CourseEnrollmentBar {
+  courseName: string;
+  count: number;
+}
 
 export default function AdminDashboard() {
   const settings = useAppSettings();
   const [stats, setStats] = useState({ users: 0, pending: 0, courses: 0, videos: 0, exams: 0 });
+  const [recent, setRecent] = useState<RecentEnrollment[]>([]);
+  const [courseBars, setCourseBars] = useState<CourseEnrollmentBar[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,6 +70,38 @@ export default function AdminDashboard() {
           videos: videosData.length,
           exams: examsCount,
         });
+
+        // Recent enrollment requests (last 5)
+        const recentReqs: RecentEnrollment[] = [...enrollRequestsData]
+          .sort((a: any, b: any) => {
+            const ad = safeToDate(a.createdAt)?.getTime() || 0;
+            const bd = safeToDate(b.createdAt)?.getTime() || 0;
+            return bd - ad;
+          })
+          .slice(0, 5)
+          .map((r: any) => ({
+            id: r.id,
+            name: r.name || "Unknown",
+            courseName: r.courseName || "—",
+            status: r.status || "pending",
+            createdAt: r.createdAt,
+          }));
+        setRecent(recentReqs);
+
+        // Bar chart: students per course
+        const courseMap = new Map<string, { name: string; count: number }>();
+        coursesData.forEach((c: any) => courseMap.set(c.id, { name: c.courseName || "Untitled", count: 0 }));
+        students.forEach((s: any) => {
+          (s.enrolledCourses || []).forEach((ec: any) => {
+            const entry = courseMap.get(ec.courseId);
+            if (entry) entry.count += 1;
+          });
+        });
+        const bars = Array.from(courseMap.values())
+          .map((c) => ({ courseName: c.name, count: c.count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 6);
+        setCourseBars(bars);
       } catch (err) {
         console.error("Error fetching dashboard stats:", err);
       } finally {
@@ -255,6 +303,77 @@ export default function AdminDashboard() {
                   <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Course Enrollment Chart ── */}
+        {courseBars.length > 0 && (
+          <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Students per Course</p>
+            </div>
+            <div className="space-y-3">
+              {(() => {
+                const max = Math.max(...courseBars.map((b) => b.count), 1);
+                return courseBars.map((b) => {
+                  const pct = (b.count / max) * 100;
+                  return (
+                    <div key={b.courseName}>
+                      <div className="flex items-center justify-between mb-1 text-xs">
+                        <span className="text-foreground truncate pr-2">{b.courseName}</span>
+                        <span className="text-muted-foreground tabular-nums shrink-0">{b.count}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ── Recent Enrollment Requests ── */}
+        {recent.length > 0 && (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold text-foreground">Recent Enrollment Requests</p>
+              </div>
+              <Link to="/admin/users?status=pending" className="text-xs text-primary hover:underline">
+                View all
+              </Link>
+            </div>
+            <div className="divide-y divide-border">
+              {recent.map((r) => {
+                const date = safeToDate(r.createdAt);
+                const dateStr = date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+                const statusColor =
+                  r.status === "approved"
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20"
+                    : r.status === "rejected"
+                    ? "bg-red-500/10 text-red-600 dark:text-red-400 ring-red-500/20"
+                    : "bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20";
+                return (
+                  <div key={r.id} className="flex items-center gap-3 px-4 sm:px-5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{r.courseName}</p>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 hidden sm:inline">{dateStr}</span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ring-1 ${statusColor} shrink-0`}>
+                      {r.status}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
