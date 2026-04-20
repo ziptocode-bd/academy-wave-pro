@@ -5,10 +5,8 @@ import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
 import { Exam, ExamQuestion } from "@/types/exam";
 import { Course } from "@/types";
-import { safeToDate } from "@/lib/timestampUtils";
 import { toast } from "sonner";
 import { Trash2, Plus, Upload, ChevronDown, ChevronUp, X, Image, Download, ExternalLink, FileText, CheckCircle, ArrowLeft } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 
 /* ── Helpers ── */
 const FormSection = ({ icon: Icon, title, step, children }: { icon: any; title: string; step: number; children: React.ReactNode }) => (
@@ -61,10 +59,8 @@ export default function AdminAddExamPage() {
         setDuration(exam.duration);
         setNegativeMark(exam.negativeMark || 0);
         setPassMark(exam.passMark || 0);
-        const startDate = safeToDate(exam.startTime);
-        const endDate = safeToDate(exam.endTime);
-        setStartTime(startDate ? startDate.toISOString().slice(0, 16) : "");
-        setEndTime(endDate ? endDate.toISOString().slice(0, 16) : "");
+        setStartTime(exam.startTime?.toDate?.()?.toISOString().slice(0, 16) || "");
+        setEndTime(exam.endTime?.toDate?.()?.toISOString().slice(0, 16) || "");
         setQuestions(exam.questions || []);
       }
       setLoading(false);
@@ -256,18 +252,7 @@ export default function AdminAddExamPage() {
     setSaving(false);
   };
 
-  if (loading) return (
-    <div className="animate-fade-in w-full max-w-2xl mx-auto pb-8 px-3 sm:px-4 pt-4 space-y-4">
-      <Skeleton className="h-6 w-48" />
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-10 w-full rounded-lg" />
-          <Skeleton className="h-10 w-full rounded-lg" />
-        </div>
-      ))}
-    </div>
-  );
+  if (loading) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>;
 
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto overflow-x-hidden overflow-y-auto pb-8 px-3 sm:px-4 pt-4" style={{ maxWidth: '100vw' }}>

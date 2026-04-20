@@ -16,34 +16,52 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { examDb } = await import("@/lib/examFirebase");
-      const [allUsers, coursesData, videosData, enrollRequestsData, examsData] = await Promise.all([
-        getCachedCollection<any>(db, "users"),
-        getCachedCollection<any>(db, "courses"),
-        getCachedCollection<any>(db, "videos"),
-        getCachedCollection<any>(db, "enrollRequests"),
-        getCachedCollection<any>(examDb, "exams"),
-      ]);
-      const students = allUsers.filter((u: any) => u.role === "student");
-      const pendingUsers = allUsers.filter((u: any) => u.status === "pending" && u.role === "student");
-      const pendingRequestUserIds = new Set(
-        enrollRequestsData.filter((r: any) => r.status === "pending").map((d: any) => d.userId)
-      );
-      const approvedWithPending = allUsers.filter(
-        (u: any) => u.role === "student" && u.status !== "pending" && pendingRequestUserIds.has(u.id)
-      );
-      const pendingCount = pendingUsers.length + approvedWithPending.length;
-      setStats({
-        users: students.length,
-        pending: pendingCount,
-        courses: coursesData.length,
-        videos: videosData.length,
-        exams: examsData.length,
-      });
-      setLoading(false);
+    const fetchStats = async () => {
+      try {
+        // Fetch main db collections
+        const [allUsers, coursesData, videosData, enrollRequestsData] = await Promise.all([
+          getCachedCollection<any>(db, "users"),
+          getCachedCollection<any>(db, "courses"),
+          getCachedCollection<any>(db, "videos"),
+          getCachedCollection<any>(db, "enrollRequests"),
+        ]);
+
+        // Fetch exams from examDb separately to isolate any failure
+        let examsCount = 0;
+        try {
+          const { examDb } = await import("@/lib/examFirebase");
+          const examsData = await getCachedCollection<any>(examDb, "exams");
+          examsCount = examsData.length;
+        } catch (examErr) {
+          console.error("Error fetching exams for dashboard:", examErr);
+          // Continue with 0 — don't block the whole dashboard
+        }
+
+        const students = allUsers.filter((u: any) => u.role === "student");
+        const pendingUsers = allUsers.filter((u: any) => u.status === "pending" && u.role === "student");
+        const pendingRequestUserIds = new Set(
+          enrollRequestsData.filter((r: any) => r.status === "pending").map((d: any) => d.userId)
+        );
+        const approvedWithPending = allUsers.filter(
+          (u: any) => u.role === "student" && u.status !== "pending" && pendingRequestUserIds.has(u.id)
+        );
+        const pendingCount = pendingUsers.length + approvedWithPending.length;
+
+        setStats({
+          users: students.length,
+          pending: pendingCount,
+          courses: coursesData.length,
+          videos: videosData.length,
+          exams: examsCount,
+        });
+      } catch (err) {
+        console.error("Error fetching dashboard stats:", err);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetch();
+
+    fetchStats();
   }, []);
 
   const primaryCards = [
@@ -122,7 +140,6 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── Primary Stats ── */}
-        {/* Mobile: 2 cols | md+: side-by-side larger cards */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-2">
           {primaryCards.map((card) => (
             <Link
@@ -135,7 +152,6 @@ export default function AdminDashboard() {
                   : `border-border ${card.hoverBorder}`
                 } ${card.hoverBg}`}
             >
-              {/* Subtle inner glow on hover */}
               <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${card.bg}`} />
 
               <div className="relative">
@@ -169,7 +185,6 @@ export default function AdminDashboard() {
             Content
           </p>
 
-          {/* Mobile: 3 cols compact | md: 3 cols bigger | lg: row with more detail */}
           <div className="grid grid-cols-3 gap-2.5 sm:gap-3 md:gap-4">
             {secondaryCards.map((card) => (
               <Link
@@ -203,7 +218,6 @@ export default function AdminDashboard() {
               Quick Links
             </p>
 
-            {/* Mobile: 2 cols | sm+: auto sizing */}
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {settings.youtubeChannel && (
                 <a

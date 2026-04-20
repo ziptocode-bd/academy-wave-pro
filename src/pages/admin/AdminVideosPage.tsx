@@ -4,7 +4,7 @@ import { db } from "@/lib/firebase";
 import { Video, Course } from "@/types";
 import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Film, Filter, Radio } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Film, Filter } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ImageUrlInput } from "@/components/ImageUrlInput";
 import { AdminVideoListSkeleton } from "@/components/skeletons/AdminSkeleton";
@@ -29,7 +29,6 @@ export default function AdminVideosPage() {
   const [thumbnail, setThumbnail] = useState("");
   const [videoURL, setVideoURL] = useState("");
   const [pdfURL, setPdfURL] = useState("");
-  const [isLive, setIsLive] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -51,14 +50,14 @@ export default function AdminVideosPage() {
   const selectedSubject = selectedCourse?.subjects?.find((s) => s.subjectId === subjectId);
 
   const resetForm = () => {
-    setCourseId(""); setSubjectId(""); setChapterId(""); setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setIsLive(false); setEditVideo(null);
+    setCourseId(""); setSubjectId(""); setChapterId(""); setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setEditVideo(null);
   };
 
   const openAdd = () => { resetForm(); setShowForm(true); };
 
   const openEdit = (v: Video) => {
     setEditVideo(v); setCourseId(v.courseId); setSubjectId(v.subjectId); setChapterId(v.chapterId || "");
-    setTitle(v.title); setThumbnail(v.thumbnail); setVideoURL(v.videoURL); setPdfURL(v.pdfURL); setIsLive(v.isLive || false); setShowForm(true);
+    setTitle(v.title); setThumbnail(v.thumbnail); setVideoURL(v.videoURL); setPdfURL(v.pdfURL); setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,7 +73,7 @@ export default function AdminVideosPage() {
       const data: any = {
         courseId, courseName: course?.courseName || "", subjectId, subjectName: subject?.subjectName || "",
         chapterId: chapterId || "", chapterName: chapter?.chapterName || "",
-        title, thumbnail, videoURL, pdfURL, isLive, createdAt: Timestamp.now(),
+        title, thumbnail, videoURL, pdfURL, createdAt: Timestamp.now(),
       };
       if (editVideo) {
         data.order = editVideo.order;
@@ -187,19 +186,6 @@ export default function AdminVideosPage() {
                 <label className="text-xs font-medium text-muted-foreground">PDF URL (Optional)</label>
                 <input type="text" placeholder="https://..." value={pdfURL} onChange={(e) => setPdfURL(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
               </div>
-
-              {/* Live Class Toggle */}
-              <label className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background cursor-pointer hover:bg-accent/50 transition-colors">
-                <div className={`w-10 h-5 rounded-full relative transition-colors ${isLive ? 'bg-red-500' : 'bg-muted'}`}>
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isLive ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Radio className={`h-4 w-4 ${isLive ? 'text-red-500' : 'text-muted-foreground'}`} />
-                  <span className={`text-sm font-medium ${isLive ? 'text-red-500' : 'text-muted-foreground'}`}>
-                    {isLive ? '🔴 Live Class' : 'Live Class'}
-                  </span>
-                </div>
-              </label>
             </div>
           </div>
 

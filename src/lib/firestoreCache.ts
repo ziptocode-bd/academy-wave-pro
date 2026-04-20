@@ -1,4 +1,4 @@
-import { collection, getDocs, getDoc, doc, query, where, QueryConstraint, Firestore, DocumentData, Timestamp } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, query, where, QueryConstraint, Firestore, DocumentData } from "firebase/firestore";
 
 interface CacheEntry<T = any> {
   data: T;
@@ -30,27 +30,11 @@ function getLocalStorageKey(key: string): string {
   return `fsc_${key}`;
 }
 
-function reconstructTimestamps(obj: any): any {
-  if (!obj || typeof obj !== "object") return obj;
-  if (Array.isArray(obj)) return obj.map(reconstructTimestamps);
-  // Detect serialized Firestore Timestamp (has seconds + nanoseconds, is a plain object)
-  if ("seconds" in obj && "nanoseconds" in obj && (Object.keys(obj).length <= 3)) {
-    return new Timestamp(obj.seconds, obj.nanoseconds);
-  }
-  const result: any = {};
-  for (const key of Object.keys(obj)) {
-    result[key] = reconstructTimestamps(obj[key]);
-  }
-  return result;
-}
-
 function getFromLocalStorage<T>(key: string): CacheEntry<T> | null {
   try {
     const raw = localStorage.getItem(getLocalStorageKey(key));
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    // Reconstruct Timestamps from plain objects
-    return { ...parsed, data: reconstructTimestamps(parsed.data) };
+    return JSON.parse(raw);
   } catch {
     return null;
   }

@@ -8,15 +8,13 @@ import { Course } from "@/types";
 import { toast } from "sonner";
 import { Trash2, Edit, Eye, Plus, Download, Upload, Trophy, CheckCircle, XCircle, Image, Save, ArrowLeft, ZoomIn, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { safeToDate } from "@/lib/timestampUtils";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const formatTime12 = (d?: Date | null) => d?.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' }) || "";
+const formatTime12 = (d?: Date) => d?.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' }) || "";
 
 const PAGE_SIZE = 15;
 
@@ -37,13 +35,8 @@ export default function AdminExamsPage() {
 
   const fetchExams = async () => {
     setLoading(true);
-    try {
-      const snap = await getDocs(collection(examDb, "exams"));
-      setExams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Exam)));
-    } catch (err) {
-      console.error("Error fetching exams:", err);
-      toast.error("Failed to load exams");
-    }
+    const snap = await getDocs(collection(examDb, "exams"));
+    setExams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Exam)));
     setLoading(false);
   };
 
@@ -368,30 +361,14 @@ export default function AdminExamsPage() {
           </select>
 
           {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="bg-card border border-border rounded-2xl overflow-hidden p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                  <Skeleton className="h-3 w-32" />
-                  <div className="flex flex-wrap gap-1.5">
-                    <Skeleton className="h-5 w-14 rounded-full" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                    <Skeleton className="h-5 w-16 rounded-full" />
-                  </div>
-                  <Skeleton className="h-3 w-40" />
-                </div>
-              ))}
-            </div>
+            <p className="text-muted-foreground text-sm text-center py-8">Loading...</p>
           ) : paginatedExams.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8">No exams yet</p>
           ) : (
             <div className="space-y-3">
               {paginatedExams.map(exam => {
-                const startTime = formatTime12(safeToDate(exam.startTime));
-                const endTime = formatTime12(safeToDate(exam.endTime));
+                const startTime = formatTime12(exam.startTime?.toDate?.());
+                const endTime = formatTime12(exam.endTime?.toDate?.());
                 const typeLabel = getExamTypeLabel(exam);
                 const typeColor =
                   typeLabel === "MCQ + Written"
