@@ -52,10 +52,7 @@ export default function ExamTakePage() {
     if (submittedRef.current) return;
     toast.error("⚠️ ট্যাব সুইচের কারণে পরীক্ষা অটো-সাবমিট হচ্ছে!");
     handleSubmitInternal();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Note: handleSubmitInternal is intentionally not in deps to avoid recreation loops;
-  // it reads latest state via refs and useCallback deps internally.
 
   const handleFullscreenExitConfirm = useCallback(() => {
     if (submittedRef.current || isUploadingWrittenState) return;
@@ -115,8 +112,7 @@ export default function ExamTakePage() {
       });
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [started, submitted, timeLeft > 0]);
+  }, [started, submitted]);
 
   useEffect(() => {
     return () => {

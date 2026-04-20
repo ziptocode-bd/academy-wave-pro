@@ -7,8 +7,6 @@ import { Video, Course } from "@/types";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { VideoGridSkeleton } from "@/components/skeletons/VideoCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isCompleted } from "@/lib/videoProgress";
-import { Check } from "lucide-react";
 
 export default function CourseContentPage() {
   const { courseId } = useParams();
@@ -64,28 +62,15 @@ export default function CourseContentPage() {
         <p className="text-center text-muted-foreground py-8">No videos found.</p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((video) => {
-            const done = user && !video.isLive ? isCompleted(user.uid, video.id) : false;
-            return (
-              <button key={video.id} onClick={() => navigate(`/video/${video.id}`)} className="bg-card rounded-lg shadow-card overflow-hidden border border-border text-left relative">
-                <div className="relative">
-                  {video.thumbnail ? <img src={video.thumbnail} alt={video.title} className="w-full h-36 object-cover" /> : <div className="w-full h-36 bg-muted" />}
-                  {done && (
-                    <div className="absolute top-2 right-2 bg-green-600 text-white rounded-full p-1 shadow-md">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
-                  )}
-                </div>
-                <div className="p-3">
-                  <p className="text-sm font-medium text-foreground line-clamp-2">{video.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
-                    {settings.appName || "LMS"}
-                    {done && <span className="text-green-600 dark:text-green-400 font-medium">• দেখা হয়েছে</span>}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
+          {filtered.map((video) => (
+            <button key={video.id} onClick={() => navigate(`/video/${video.id}`)} className="bg-card rounded-lg shadow-card overflow-hidden border border-border text-left">
+              {video.thumbnail ? <img src={video.thumbnail} alt={video.title} className="w-full h-36 object-cover" /> : <div className="w-full h-36 bg-muted" />}
+              <div className="p-3">
+                <p className="text-sm font-medium text-foreground line-clamp-2">{video.title}</p>
+                <p className="text-xs text-muted-foreground mt-1">{settings.appName || "LMS"}</p>
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </div>

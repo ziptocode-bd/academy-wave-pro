@@ -1,4 +1,4 @@
-import { collection, getDocs, getDoc, doc, query, where, QueryConstraint, Firestore, DocumentData, Timestamp } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, query, where, QueryConstraint, Firestore, DocumentData } from "firebase/firestore";
 
 interface CacheEntry<T = any> {
   data: T;
@@ -7,16 +7,19 @@ interface CacheEntry<T = any> {
 
 // Default TTLs in milliseconds
 const TTL = {
-  courses: 10 * 60 * 1000,
-  videos: 5 * 60 * 1000,
-  settings: 30 * 60 * 1000,
-  users: 2 * 60 * 1000,
-  exams: 5 * 60 * 1000,
-  enrollRequests: 2 * 60 * 1000,
-  default: 5 * 60 * 1000,
+  courses: 10 * 60 * 1000,      // 10 min
+  videos: 5 * 60 * 1000,        // 5 min
+  settings: 30 * 60 * 1000,     // 30 min
+  users: 2 * 60 * 1000,         // 2 min
+  exams: 5 * 60 * 1000,         // 5 min
+  enrollRequests: 2 * 60 * 1000, // 2 min
+  default: 5 * 60 * 1000,       // 5 min
 };
 
+// In-memory cache
 const memoryCache = new Map<string, CacheEntry>();
+
+// Pending requests deduplication
 const pendingRequests = new Map<string, Promise<any>>();
 
 function getCacheTTL(collectionName: string): number {
@@ -27,52 +30,11 @@ function getLocalStorageKey(key: string): string {
   return `fsc_${key}`;
 }
 
-// Serialize Firestore Timestamp -> tagged plain object before JSON.stringify
-function serializeData(data: any): any {
-  if (data === null || data === undefined) return data;
-  if (data instanceof Timestamp) {
-    return { __ts: true, seconds: data.seconds, nanoseconds: data.nanoseconds };
-  }
-  if (Array.isArray(data)) return data.map(serializeData);
-  if (typeof data === "object") {
-    // Already-tagged or plain timestamp-like obj
-    if (data.__ts) return data;
-    const out: any = {};
-    for (const k of Object.keys(data)) out[k] = serializeData(data[k]);
-    return out;
-  }
-  return data;
-}
-
-// Deserialize tagged plain object -> Firestore Timestamp after JSON.parse
-function deserializeData(data: any): any {
-  if (data === null || data === undefined) return data;
-  if (Array.isArray(data)) return data.map(deserializeData);
-  if (typeof data === "object") {
-    if (data.__ts && typeof data.seconds === "number") {
-      return new Timestamp(data.seconds, data.nanoseconds || 0);
-    }
-    // Backward-compat: untagged {seconds,nanoseconds} from old caches
-    if (
-      typeof data.seconds === "number" &&
-      typeof data.nanoseconds === "number" &&
-      Object.keys(data).length === 2
-    ) {
-      return new Timestamp(data.seconds, data.nanoseconds);
-    }
-    const out: any = {};
-    for (const k of Object.keys(data)) out[k] = deserializeData(data[k]);
-    return out;
-  }
-  return data;
-}
-
 function getFromLocalStorage<T>(key: string): CacheEntry<T> | null {
   try {
     const raw = localStorage.getItem(getLocalStorageKey(key));
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return { timestamp: parsed.timestamp, data: deserializeData(parsed.data) };
+    return JSON.parse(raw);
   } catch {
     return null;
   }
@@ -80,9 +42,10 @@ function getFromLocalStorage<T>(key: string): CacheEntry<T> | null {
 
 function setToLocalStorage<T>(key: string, data: T): void {
   try {
-    const entry = { data: serializeData(data), timestamp: Date.now() };
+    const entry: CacheEntry<T> = { data, timestamp: Date.now() };
     localStorage.setItem(getLocalStorageKey(key), JSON.stringify(entry));
   } catch {
+    // Storage full - clear old cache entries
     clearOldCache();
   }
 }
@@ -97,6 +60,10 @@ function isFresh(entry: CacheEntry | null, collectionName: string): boolean {
   return Date.now() - entry.timestamp < getCacheTTL(collectionName);
 }
 
+/**
+ * Get cached collection data. Returns from memory > localStorage > Firestore.
+ * Deduplicates concurrent requests for the same key.
+ */
 export async function getCachedCollection<T extends { id: string }>(
   dbInstance: Firestore,
   collectionName: string,
@@ -105,17 +72,20 @@ export async function getCachedCollection<T extends { id: string }>(
 ): Promise<T[]> {
   const cacheKey = `col_${collectionName}${cacheKeySuffix ? `_${cacheKeySuffix}` : ""}`;
 
+  // 1. Check memory cache
   const memEntry = memoryCache.get(cacheKey);
   if (isFresh(memEntry, collectionName)) {
     return memEntry!.data as T[];
   }
 
+  // 2. Check localStorage
   const lsEntry = getFromLocalStorage<T[]>(cacheKey);
   if (isFresh(lsEntry, collectionName)) {
     memoryCache.set(cacheKey, lsEntry!);
     return lsEntry!.data;
   }
 
+  // 3. Deduplicate concurrent requests
   if (pendingRequests.has(cacheKey)) {
     return pendingRequests.get(cacheKey)!;
   }
@@ -127,6 +97,7 @@ export async function getCachedCollection<T extends { id: string }>(
       const snap = await getDocs(q);
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as T));
 
+      // Update caches
       const entry: CacheEntry<T[]> = { data, timestamp: Date.now() };
       memoryCache.set(cacheKey, entry);
       setToLocalStorage(cacheKey, data);
@@ -141,6 +112,9 @@ export async function getCachedCollection<T extends { id: string }>(
   return fetchPromise;
 }
 
+/**
+ * Get a cached single document.
+ */
 export async function getCachedDoc<T>(
   dbInstance: Firestore,
   collectionName: string,
@@ -183,24 +157,33 @@ export async function getCachedDoc<T>(
   return fetchPromise;
 }
 
+/**
+ * Invalidate cache for a collection (call after writes).
+ */
 export function invalidateCache(collectionName?: string): void {
   if (collectionName) {
+    // Remove specific collection entries
     const prefixes = [`col_${collectionName}`, `doc_${collectionName}`];
     for (const key of memoryCache.keys()) {
       if (prefixes.some(p => key.startsWith(p))) {
         memoryCache.delete(key);
       }
     }
-    const lsKeys = Object.keys(localStorage).filter(k =>
+    // Also clear localStorage
+    const lsKeys = Object.keys(localStorage).filter(k => 
       prefixes.some(p => k.startsWith(`fsc_${p}`))
     );
     lsKeys.forEach(k => localStorage.removeItem(k));
   } else {
+    // Clear all
     memoryCache.clear();
     clearOldCache();
   }
 }
 
+/**
+ * Pre-warm cache for commonly accessed collections.
+ */
 export function prewarmCache(dbInstance: Firestore, collections: string[]): void {
   collections.forEach(col => {
     getCachedCollection(dbInstance, col).catch(() => {});

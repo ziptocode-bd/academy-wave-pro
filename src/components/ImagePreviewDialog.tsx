@@ -1,10 +1,7 @@
 import {
   Dialog, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
-
-const VisuallyHidden = ({ children }: { children: React.ReactNode }) => (
-  <span className="sr-only">{children}</span>
-);
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 interface ImagePreviewDialogProps {
   src: string | null;
