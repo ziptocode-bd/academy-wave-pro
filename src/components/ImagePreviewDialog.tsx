@@ -1,7 +1,6 @@
 import {
   Dialog, DialogContent, DialogTitle,
 } from "@/components/ui/dialog";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 interface ImagePreviewDialogProps {
   src: string | null;
@@ -13,7 +12,7 @@ export function ImagePreviewDialog({ src, alt = "Preview", onClose }: ImagePrevi
   return (
     <Dialog open={!!src} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 sm:p-4 flex items-center justify-center">
-        <VisuallyHidden><DialogTitle>Image Preview</DialogTitle></VisuallyHidden>
+        <DialogTitle className="sr-only">Image Preview</DialogTitle>
         {src && (
           <img
             src={src}
