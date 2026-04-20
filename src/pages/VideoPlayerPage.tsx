@@ -273,21 +273,64 @@ export default function VideoPlayerPage() {
     };
   }, [video?.id, loading]);
 
-  // Progress interval — skip for live
+  // Progress interval — skip for live. Also persist progress every ~10s.
+  const lastSavedRef = useRef(0);
   useEffect(() => {
     if (progressInterval.current) clearInterval(progressInterval.current);
     if (playerReady && isPlaying && !video?.isLive) {
       progressInterval.current = setInterval(() => {
         if (playerRef.current?.getCurrentTime) {
-          setCurrentTime(playerRef.current.getCurrentTime());
-          setDuration(playerRef.current.getDuration());
+          const t = playerRef.current.getCurrentTime();
+          const d = playerRef.current.getDuration();
+          setCurrentTime(t);
+          setDuration(d);
+          if (user && video && d > 0 && Math.abs(t - lastSavedRef.current) >= 10) {
+            saveProgress(user.uid, video.id, t, d);
+            lastSavedRef.current = t;
+          }
         }
       }, 500);
     }
     return () => {
       if (progressInterval.current) clearInterval(progressInterval.current);
     };
-  }, [playerReady, isPlaying, video?.isLive]);
+  }, [playerReady, isPlaying, video?.isLive, user, video]);
+
+  // Save progress on unmount / video change
+  useEffect(() => {
+    return () => {
+      if (user && video && !video.isLive && playerRef.current?.getCurrentTime) {
+        try {
+          const t = playerRef.current.getCurrentTime();
+          const d = playerRef.current.getDuration();
+          if (d > 0) saveProgress(user.uid, video.id, t, d);
+        } catch {}
+      }
+    };
+  }, [user, video]);
+
+  // Resume prompt when player ready
+  const resumeShownRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!playerReady || !user || !video || video.isLive) return;
+    if (resumeShownRef.current === video.id) return;
+    resumeShownRef.current = video.id;
+    const prog = getProgress(user.uid, video.id);
+    if (prog && prog.time > 15 && prog.duration > 0 && prog.time < prog.duration - 10) {
+      const mins = Math.floor(prog.time / 60);
+      const secs = Math.floor(prog.time % 60).toString().padStart(2, "0");
+      toast(`আগে দেখেছিলেন ${mins}:${secs} পর্যন্ত`, {
+        description: "সেখান থেকে চালু করবেন?",
+        duration: 8000,
+        action: {
+          label: "চালু করুন",
+          onClick: () => {
+            try { playerRef.current?.seekTo(prog.time, true); } catch {}
+          },
+        },
+      });
+    }
+  }, [playerReady, user, video]);
 
   useEffect(() => {
     if (showControls && isPlaying) {
@@ -645,7 +688,7 @@ export default function VideoPlayerPage() {
             )}
           </div>
           <div className="space-y-2">
-            {(chapterFilter === "All"
+          {(chapterFilter === "All"
               ? relatedVideos
               : relatedVideos.filter((v) => v.chapterName === chapterFilter)
             ).map((v) => (
@@ -654,6 +697,7 @@ export default function VideoPlayerPage() {
                 v={v}
                 videoId={videoId}
                 settings={settings}
+                userId={user?.uid}
               />
             ))}
           </div>
@@ -682,6 +726,7 @@ export default function VideoPlayerPage() {
               v={v}
               videoId={videoId}
               settings={settings}
+              userId={user?.uid}
             />
           ))}
         </div>
@@ -739,35 +784,41 @@ function VideoListItem({
   v,
   videoId,
   settings,
+  userId,
 }: {
   v: Video;
   videoId?: string;
   settings: any;
+  userId?: string;
 }) {
   const navigate = useNavigate();
   const isLive = v.isLive === true;
+  const isCurrent = v.id === videoId;
+  const completed = userId && !isLive ? isCompleted(userId, v.id) : false;
 
   return (
     <button
       onClick={() => navigate(`/video/${v.id}`)}
-      className={`flex gap-3 w-full text-left p-2 rounded-md ${
-        v.id === videoId
-          ? "bg-accent border border-primary/30"
+      className={`flex gap-3 w-full text-left p-2 rounded-md transition-colors ${
+        isCurrent
+          ? "bg-primary/10 border border-primary/40 ring-1 ring-primary/20"
           : "hover:bg-accent"
       }`}
     >
       {/* Thumbnail */}
       <div className="relative w-28 h-16 flex-shrink-0">
         {v.thumbnail ? (
-          <img
-            src={v.thumbnail}
-            alt=""
-            className="w-full h-full object-cover rounded-md"
-          />
+          <img src={v.thumbnail} alt="" className="w-full h-full object-cover rounded-md" />
         ) : (
           <div className="w-full h-full bg-muted rounded-md" />
         )}
-        {/* Live badge on thumbnail */}
+        {isCurrent && (
+          <div className="absolute inset-0 bg-black/40 rounded-md flex items-center justify-center">
+            <span className="text-white text-[10px] font-bold tracking-wide bg-primary px-1.5 py-0.5 rounded">
+              NOW
+            </span>
+          </div>
+        )}
         {isLive && (
           <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
             <span className="relative flex h-1.5 w-1.5">
@@ -780,15 +831,16 @@ function VideoListItem({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm font-medium line-clamp-2 ${
-            v.id === videoId ? "text-primary" : "text-foreground"
-          }`}
-        >
+        <p className={`text-sm font-medium line-clamp-2 ${isCurrent ? "text-primary" : "text-foreground"}`}>
           {v.title}
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
           {settings.appName || "Darpan Academy"}
+          {completed && (
+            <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400 font-medium">
+              <Check className="h-3 w-3" /> দেখা হয়েছে
+            </span>
+          )}
         </p>
       </div>
     </button>
