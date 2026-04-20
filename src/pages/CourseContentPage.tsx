@@ -7,6 +7,8 @@ import { Video, Course } from "@/types";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { VideoGridSkeleton } from "@/components/skeletons/VideoCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isCompleted } from "@/lib/videoProgress";
+import { Check } from "lucide-react";
 
 export default function CourseContentPage() {
   const { courseId } = useParams();
