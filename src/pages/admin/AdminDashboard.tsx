@@ -303,8 +303,9 @@ export default function AdminDashboard() {
                   <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
               )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Course Enrollment Chart ── */}
         {courseBars.length > 0 && (
@@ -375,7 +376,6 @@ export default function AdminDashboard() {
               })}
             </div>
           </div>
-        )}
         )}
       </div>
     </div>
