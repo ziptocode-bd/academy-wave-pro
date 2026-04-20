@@ -30,6 +30,8 @@ import {
 import { FloatingButtons } from "@/components/FloatingButtons";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { VideoPlayerSkeleton } from "@/components/skeletons/VideoPlayerSkeleton";
+import { saveProgress, getProgress, isCompleted } from "@/lib/videoProgress";
+import { toast } from "sonner";
 
 declare global {
   interface Window {
