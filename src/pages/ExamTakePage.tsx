@@ -239,7 +239,19 @@ export default function ExamTakePage() {
     };
 
     try {
-      const docRef = await addDoc(collection(examDb, "submissions"), submission);
+      const submissionId = `${exam.id}_${user.uid}`;
+      const submissionRef = doc(examDb, "submissions", submissionId);
+      await setDoc(submissionRef, submission);
+      const docRef = { id: submissionId };
+
+      // Atomically increment participant count (cheap: 1 write per submission)
+      try {
+        const counterRef = doc(examDb, "examCounters", exam.id);
+        await setDoc(counterRef, { totalParticipants: increment(1) }, { merge: true });
+      } catch {
+        // Non-critical — don't fail the submission if counter fails
+      }
+
       const resultSub = { id: docRef.id, ...submission } as ExamSubmission;
       setResult(resultSub);
       setSubmitted(true);
