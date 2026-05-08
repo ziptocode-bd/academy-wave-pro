@@ -85,9 +85,10 @@ export default function ExamTakePage() {
       const snap = await getDoc(doc(examDb, "exams", examId));
       if (snap.exists()) setExam({ id: snap.id, ...snap.data() } as Exam);
       if (user) {
-        const subSnap = await getDocs(query(collection(examDb, "submissions"), where("examId", "==", examId), where("userId", "==", user.uid)));
-        if (!subSnap.empty) {
-          const sub = { id: subSnap.docs[0].id, ...subSnap.docs[0].data() } as ExamSubmission;
+        const submissionId = `${examId}_${user.uid}`;
+        const subSnap = await getDoc(doc(examDb, "submissions", submissionId));
+        if (subSnap.exists()) {
+          const sub = { id: subSnap.id, ...subSnap.data() } as ExamSubmission;
           setExistingSubmission(sub);
           setResult(sub);
           setSubmitted(true);
