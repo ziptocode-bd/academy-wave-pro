@@ -46,6 +46,7 @@ export interface ExamSubmission {
   passed?: boolean;
   writtenGraded?: boolean;
   writtenMarks?: number;
+  rank?: number;
   deviceInfo?: Record<string, any>;
 }
 
