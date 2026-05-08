@@ -4,7 +4,8 @@ import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/use-theme";
 import { useEffect, useState } from "react";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { where } from "firebase/firestore";
+import { getCachedDoc, getCachedCollection } from "@/lib/firestoreCache";
 import { db } from "@/lib/firebase";
 import { Course } from "@/types";
 
