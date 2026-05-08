@@ -27,17 +27,21 @@ export function DesktopUserSidebar() {
 
   useEffect(() => {
     if (userDoc?.activeCourseId) {
-      getDoc(doc(db, "courses", userDoc.activeCourseId)).then((snap) => {
-        if (snap.exists()) setActiveCourse({ id: snap.id, ...snap.data() } as Course);
+      getCachedDoc<Course>(db, "courses", userDoc.activeCourseId).then((c) => {
+        if (c) setActiveCourse(c);
       });
       if (user) {
-        getDocs(query(
-          collection(db, "enrollRequests"),
-          where("userId", "==", user.uid),
-          where("courseId", "==", userDoc.activeCourseId),
-          where("status", "==", "approved")
-        )).then((snap) => {
-          setIsActiveApproved(!snap.empty);
+        getCachedCollection<any>(
+          db,
+          "enrollRequests",
+          [
+            where("userId", "==", user.uid),
+            where("courseId", "==", userDoc.activeCourseId),
+            where("status", "==", "approved"),
+          ],
+          `approved_${user.uid}_${userDoc.activeCourseId}`
+        ).then((requests) => {
+          setIsActiveApproved(requests.length > 0);
         });
       }
     }
