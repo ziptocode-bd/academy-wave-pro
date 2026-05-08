@@ -122,14 +122,19 @@ export default function ExamTakePage() {
   }, []);
 
   const loadMyRanking = async () => {
-    if (!exam || !user) return;
-    const snap = await getDocs(query(collection(examDb, "submissions"), where("examId", "==", exam.id)));
-    const subs = snap.docs
-      .map(d => ({ id: d.id, ...d.data() } as ExamSubmission))
-      .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
-    setTotalParticipants(subs.length);
-    const rank = subs.findIndex(s => s.userId === user.uid);
-    setMyRank(rank >= 0 ? rank + 1 : null);
+    if (!exam || !user || !result) return;
+    try {
+      const counterSnap = await getDoc(doc(examDb, "examCounters", exam.id));
+      const total = counterSnap.exists() ? (counterSnap.data() as any).totalParticipants || 0 : 0;
+      setTotalParticipants(total);
+    } catch {
+      setTotalParticipants(0);
+    }
+    if ((result as any).rank) {
+      setMyRank((result as any).rank);
+    } else {
+      setMyRank(null);
+    }
   };
 
   const formatTime = (seconds: number) => {
