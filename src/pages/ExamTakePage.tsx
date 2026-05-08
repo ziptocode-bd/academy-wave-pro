@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, addDoc, collection, getDocs, query, where, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, addDoc, collection, getDocs, query, where, setDoc, Timestamp, increment } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam, ExamAnswer, ExamSubmission } from "@/types/exam";
