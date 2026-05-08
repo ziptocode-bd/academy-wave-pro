@@ -231,7 +231,7 @@ export default function CourseDetailsPage() {
         </div>
       </div>
 
-      <FloatingButtons course={course} />
+      <FloatingButtons />
     </div>
   );
 }
