@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, addDoc, collection, getDocs, query, where, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, addDoc, collection, getDocs, query, where, setDoc, Timestamp, increment } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam, ExamAnswer, ExamSubmission } from "@/types/exam";
@@ -85,9 +85,10 @@ export default function ExamTakePage() {
       const snap = await getDoc(doc(examDb, "exams", examId));
       if (snap.exists()) setExam({ id: snap.id, ...snap.data() } as Exam);
       if (user) {
-        const subSnap = await getDocs(query(collection(examDb, "submissions"), where("examId", "==", examId), where("userId", "==", user.uid)));
-        if (!subSnap.empty) {
-          const sub = { id: subSnap.docs[0].id, ...subSnap.docs[0].data() } as ExamSubmission;
+        const submissionId = `${examId}_${user.uid}`;
+        const subSnap = await getDoc(doc(examDb, "submissions", submissionId));
+        if (subSnap.exists()) {
+          const sub = { id: subSnap.id, ...subSnap.data() } as ExamSubmission;
           setExistingSubmission(sub);
           setResult(sub);
           setSubmitted(true);
@@ -121,14 +122,19 @@ export default function ExamTakePage() {
   }, []);
 
   const loadMyRanking = async () => {
-    if (!exam || !user) return;
-    const snap = await getDocs(query(collection(examDb, "submissions"), where("examId", "==", exam.id)));
-    const subs = snap.docs
-      .map(d => ({ id: d.id, ...d.data() } as ExamSubmission))
-      .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
-    setTotalParticipants(subs.length);
-    const rank = subs.findIndex(s => s.userId === user.uid);
-    setMyRank(rank >= 0 ? rank + 1 : null);
+    if (!exam || !user || !result) return;
+    try {
+      const counterSnap = await getDoc(doc(examDb, "examCounters", exam.id));
+      const total = counterSnap.exists() ? (counterSnap.data() as any).totalParticipants || 0 : 0;
+      setTotalParticipants(total);
+    } catch {
+      setTotalParticipants(0);
+    }
+    if ((result as any).rank) {
+      setMyRank((result as any).rank);
+    } else {
+      setMyRank(null);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -233,7 +239,19 @@ export default function ExamTakePage() {
     };
 
     try {
-      const docRef = await addDoc(collection(examDb, "submissions"), submission);
+      const submissionId = `${exam.id}_${user.uid}`;
+      const submissionRef = doc(examDb, "submissions", submissionId);
+      await setDoc(submissionRef, submission);
+      const docRef = { id: submissionId };
+
+      // Atomically increment participant count (cheap: 1 write per submission)
+      try {
+        const counterRef = doc(examDb, "examCounters", exam.id);
+        await setDoc(counterRef, { totalParticipants: increment(1) }, { merge: true });
+      } catch {
+        // Non-critical — don't fail the submission if counter fails
+      }
+
       const resultSub = { id: docRef.id, ...submission } as ExamSubmission;
       setResult(resultSub);
       setSubmitted(true);

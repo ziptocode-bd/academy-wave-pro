@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
 import { Exam, ExamSubmission } from "@/types/exam";
@@ -56,11 +56,13 @@ export default function AdminExamsPage() {
   const viewResults = async (exam: Exam) => {
     setResultsExam(exam);
     setGradingSubmission(null);
-    const snap = await getDocs(collection(examDb, "submissions"));
-    const subs = snap.docs
-      .map(d => ({ id: d.id, ...d.data() } as ExamSubmission))
-      .filter(s => s.examId === exam.id)
-      .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
+    const q = query(
+      collection(examDb, "submissions"),
+      where("examId", "==", exam.id),
+      orderBy("obtainedMarks", "desc")
+    );
+    const snap = await getDocs(q);
+    const subs = snap.docs.map(d => ({ id: d.id, ...d.data() } as ExamSubmission));
     setSubmissions(subs);
     setActiveTab("results");
   };

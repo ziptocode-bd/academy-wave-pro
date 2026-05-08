@@ -7,13 +7,14 @@ interface CacheEntry<T = any> {
 
 // Default TTLs in milliseconds
 const TTL = {
-  courses: 10 * 60 * 1000,      // 10 min
-  videos: 5 * 60 * 1000,        // 5 min
-  settings: 30 * 60 * 1000,     // 30 min
-  users: 2 * 60 * 1000,         // 2 min
-  exams: 5 * 60 * 1000,         // 5 min
-  enrollRequests: 2 * 60 * 1000, // 2 min
-  default: 5 * 60 * 1000,       // 5 min
+  courses: 30 * 60 * 1000,       // 30 min — courses rarely change
+  videos: 15 * 60 * 1000,        // 15 min — videos rarely change mid-class
+  settings: 60 * 60 * 1000,      // 60 min — settings change very rarely
+  users: 5 * 60 * 1000,          // 5 min
+  exams: 10 * 60 * 1000,         // 10 min — exam list is stable once published
+  enrollRequests: 3 * 60 * 1000, // 3 min
+  examCounters: 60 * 1000,       // 1 min — this updates frequently on exam day
+  default: 10 * 60 * 1000,       // 10 min
 };
 
 // In-memory cache
