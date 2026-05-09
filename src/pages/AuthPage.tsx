@@ -218,41 +218,8 @@ export default function AuthPage() {
           )}
 
           <input type="text" placeholder="Payment Number" value={paymentNumber} onChange={(e) => setPaymentNumber(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-          <input type="text" placeholder="Transaction ID" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-
-          {/* Screenshot: File or URL */}
-          <div>
-            <p className="text-sm font-medium text-foreground mb-2">Payment Screenshot</p>
-            <div className="flex gap-2 mb-2">
-              <button type="button" onClick={() => setUploadMode("file")} className={`flex-1 py-2 text-xs font-medium rounded-md border ${uploadMode === "file" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}>
-                Upload File
-              </button>
-              <button type="button" onClick={() => setUploadMode("url")} className={`flex-1 py-2 text-xs font-medium rounded-md border ${uploadMode === "url" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}>
-                Image URL
-              </button>
-            </div>
-            {uploadMode === "file" ? (
-              <>
-                <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} className="w-full text-sm text-foreground" />
-                <ImagePreview file={screenshotFile} />
-              </>
-            ) : (
-              <div className="flex gap-1.5 sm:gap-2">
-                <input
-                  type="url"
-                  placeholder="https://i.postimg.cc/..."
-                  value={screenshotUrl}
-                  onChange={(e) => setScreenshotUrl(e.target.value)}
-                  className="flex-1 min-w-0 px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm"
-                />
-                <a href="https://postimages.org" target="_blank" rel="noopener noreferrer" title="Get Image URL"
-                  className="flex-shrink-0 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-medium hover:bg-primary/20 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Get URL
-                </a>
-              </div>
-            )}
-          </div>
+          <input type="text" required placeholder="Transaction ID (from payment SMS)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
+          <p className="text-[11px] text-muted-foreground -mt-2">পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন। এডমিন এই আইডি দিয়েই ভেরিফাই করবে।</p>
 
           <button type="submit" disabled={submitting} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50">{submitting ? "Registering..." : "Register & Enroll"}</button>
         </form>
