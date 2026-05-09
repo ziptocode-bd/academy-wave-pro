@@ -279,13 +279,8 @@ export default function ProfilePage() {
                 )}
 
                 <input type="text" placeholder="Payment Number" value={paymentNumber} onChange={(e) => setPaymentNumber(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-                <input type="text" placeholder="Transaction ID" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Payment Screenshot</p>
-                  <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} className="w-full text-sm text-foreground" />
-                  <ImagePreview file={screenshotFile} />
-                </div>
+                <input type="text" required placeholder="Transaction ID (from payment SMS)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
+                <p className="text-[11px] text-muted-foreground -mt-2">পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন।</p>
 
                 <button onClick={handleEnrollSubmit} disabled={submitting} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50">
                   {submitting ? "Submitting..." : "Submit Enrollment Request"}
