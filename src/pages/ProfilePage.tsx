@@ -15,8 +15,6 @@ import {
 import { useEffect, useState } from "react";
 import { Course } from "@/types";
 import { FloatingButtons } from "@/components/FloatingButtons";
-import { uploadToImgBB } from "@/lib/imgbb";
-import { ImagePreview } from "@/components/ImagePreview";
 
 export default function ProfilePage() {
   const { user, userDoc, logout, resetPassword, refreshUserDoc } = useAuth();
