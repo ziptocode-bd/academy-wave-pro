@@ -1,10 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, PlaySquare, ClipboardList, User, LayoutGrid, Video, GraduationCap } from "lucide-react";
+import { Home, FileText, ClipboardList, User, LayoutGrid, Video, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const userTabs = [
   { to: "/home", icon: Home, label: "Home" },
-  { to: "/content", icon: PlaySquare, label: "Content" },
+  { to: "/content", icon: FileText, label: "Content" },
   { to: "/exams", icon: ClipboardList, label: "Exam" },
   { to: "/profile", icon: User, label: "Profile" },
 ];

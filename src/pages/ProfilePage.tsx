@@ -15,8 +15,6 @@ import {
 import { useEffect, useState } from "react";
 import { Course } from "@/types";
 import { FloatingButtons } from "@/components/FloatingButtons";
-import { uploadToImgBB } from "@/lib/imgbb";
-import { ImagePreview } from "@/components/ImagePreview";
 
 export default function ProfilePage() {
   const { user, userDoc, logout, resetPassword, refreshUserDoc } = useAuth();
@@ -29,7 +27,6 @@ export default function ProfilePage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentNumber, setPaymentNumber] = useState("");
   const [transactionId, setTransactionId] = useState("");
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [courseRequestStatuses, setCourseRequestStatuses] = useState<Record<string, string>>({});
@@ -93,41 +90,37 @@ export default function ProfilePage() {
   const [reEnrollCourse, setReEnrollCourse] = useState<{ courseId: string; courseName: string; courseThumbnail: string } | null>(null);
 
   const resetEnrollForm = () => {
-    setSelectedCourse(null); setPaymentMethod(""); setPaymentNumber(""); setTransactionId(""); setScreenshotFile(null);
+    setSelectedCourse(null); setPaymentMethod(""); setPaymentNumber(""); setTransactionId("");
     setReEnrollCourse(null);
   };
 
   const handleReEnrollSubmit = async () => {
     if (!reEnrollCourse) return;
     if (!paymentMethod && settings.paymentMethods?.length > 0) { toast.error("Please select a payment method"); return; }
+    if (!transactionId.trim()) { toast.error("Transaction ID আবশ্যক"); return; }
     setSubmitting(true);
     try {
-      // Find and update the existing rejected request
+      const tnxId = transactionId.trim();
       const reqSnap = await getDocs(query(collection(db, "enrollRequests"),
         where("userId", "==", user.uid),
         where("courseId", "==", reEnrollCourse.courseId)
       ));
-      let screenshotUrl = "";
-      if (screenshotFile) screenshotUrl = await uploadToImgBB(screenshotFile);
 
       if (!reqSnap.empty) {
-        // Update existing rejected request back to pending
         await updateDoc(doc(db, "enrollRequests", reqSnap.docs[0].id), {
           status: "pending",
-          paymentMethod, paymentNumber, transactionId,
-          screenshot: screenshotUrl || reqSnap.docs[0].data().screenshot,
+          paymentMethod, paymentNumber, transactionId: tnxId,
           createdAt: Timestamp.now(),
         });
       } else {
         await addDoc(collection(db, "enrollRequests"), {
           userId: user.uid, name: userDoc.name, email: userDoc.email,
           courseId: reEnrollCourse.courseId, courseName: reEnrollCourse.courseName,
-          paymentMethod, paymentNumber, transactionId, screenshot: screenshotUrl,
+          paymentMethod, paymentNumber, transactionId: tnxId,
           status: "pending", createdAt: Timestamp.now(),
         });
       }
       await refreshUserDoc();
-      // Refresh statuses
       const snap = await getDocs(query(collection(db, "enrollRequests"), where("userId", "==", user.uid)));
       const statuses: Record<string, string> = {};
       snap.docs.forEach((d) => { const data = d.data() as { courseId: string; status: string }; statuses[data.courseId] = data.status; });
@@ -143,14 +136,14 @@ export default function ProfilePage() {
   const handleEnrollSubmit = async () => {
     if (!selectedCourse) { toast.error("Please select a course"); return; }
     if (!paymentMethod && settings.paymentMethods?.length > 0) { toast.error("Please select a payment method"); return; }
+    if (!transactionId.trim()) { toast.error("Transaction ID is required"); return; }
     setSubmitting(true);
     try {
-      let screenshotUrl = "";
-      if (screenshotFile) screenshotUrl = await uploadToImgBB(screenshotFile);
+      const tnxId = transactionId.trim();
       await addDoc(collection(db, "enrollRequests"), {
         userId: user.uid, name: userDoc.name, email: userDoc.email,
         courseId: selectedCourse.id, courseName: selectedCourse.courseName,
-        paymentMethod, paymentNumber, transactionId, screenshot: screenshotUrl,
+        paymentMethod, paymentNumber, transactionId: tnxId,
         status: "pending", createdAt: Timestamp.now(),
       });
       await updateDoc(doc(db, "users", user.uid), {
@@ -286,13 +279,8 @@ export default function ProfilePage() {
                 )}
 
                 <input type="text" placeholder="Payment Number" value={paymentNumber} onChange={(e) => setPaymentNumber(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-                <input type="text" placeholder="Transaction ID" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Payment Screenshot</p>
-                  <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} className="w-full text-sm text-foreground" />
-                  <ImagePreview file={screenshotFile} />
-                </div>
+                <input type="text" required placeholder="Transaction ID (from payment SMS)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
+                <p className="text-[11px] text-muted-foreground -mt-2">পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন।</p>
 
                 <button onClick={handleEnrollSubmit} disabled={submitting} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50">
                   {submitting ? "Submitting..." : "Submit Enrollment Request"}
@@ -341,13 +329,8 @@ export default function ProfilePage() {
             )}
 
             <input type="text" placeholder="পেমেন্ট নম্বর" value={paymentNumber} onChange={(e) => setPaymentNumber(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-            <input type="text" placeholder="ট্রানজেকশন আইডি" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">পেমেন্ট স্ক্রিনশট</p>
-              <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} className="w-full text-sm text-foreground" />
-              <ImagePreview file={screenshotFile} />
-            </div>
+            <input type="text" required placeholder="ট্রানজেকশন আইডি (পেমেন্ট SMS থেকে)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
+            <p className="text-[11px] text-muted-foreground -mt-2">পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন।</p>
 
             <button onClick={handleReEnrollSubmit} disabled={submitting} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50">
               {submitting ? "পাঠানো হচ্ছে..." : "পুনরায় এনরোল রিকোয়েস্ট পাঠান"}

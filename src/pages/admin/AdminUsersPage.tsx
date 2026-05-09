@@ -5,9 +5,8 @@ import { db } from "@/lib/firebase";
 import { UserDoc, EnrollRequest, Course } from "@/types";
 import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { toast } from "sonner";
-import { Check, X, ChevronLeft, Search, Users, BookOpen, Clock, Calendar, CreditCard, Image as ImageIcon, ChevronRight } from "lucide-react";
+import { Check, X, ChevronLeft, Search, Users, BookOpen, Clock, Calendar, CreditCard, ChevronRight, Receipt } from "lucide-react";
 import { AdminListSkeleton } from "@/components/skeletons/AdminSkeleton";
-import { ImagePreview } from "@/components/ImagePreview";
 
 interface UserWithId extends UserDoc { id: string; }
 
@@ -29,6 +28,7 @@ export default function AdminUsersPage() {
   const [courseFilter, setCourseFilter] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserWithId | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [tnxSearch, setTnxSearch] = useState("");
 
   const fetchData = async () => {
     invalidateCache("users");
@@ -182,12 +182,6 @@ export default function AdminUsersPage() {
                               <DetailRow label="Number" value={courseReq.paymentNumber} />
                               <DetailRow label="Transaction ID" value={courseReq.transactionId} />
                             </div>
-                            {courseReq.screenshot && (
-                              <div>
-                                <p className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Screenshot</p>
-                                <ImagePreview file={null} url={courseReq.screenshot} size="lg" />
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
@@ -209,12 +203,6 @@ export default function AdminUsersPage() {
                   <DetailRow label="Number" value={selectedUser.paymentInfo.paymentNumber} />
                   <DetailRow label="Transaction ID" value={selectedUser.paymentInfo.transactionId} />
                 </div>
-                {selectedUser.paymentInfo.screenshot && (
-                  <div className="mt-2">
-                    <p className="text-[11px] text-muted-foreground mb-1">Screenshot</p>
-                    <ImagePreview file={null} url={selectedUser.paymentInfo.screenshot} size="lg" />
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -230,6 +218,15 @@ export default function AdminUsersPage() {
           <Users className="h-5 w-5" /> Students ({students.length})
         </h2>
       </div>
+
+      {/* Transaction ID Verification Panel */}
+      <TnxVerificationPanel
+        value={tnxSearch}
+        onChange={setTnxSearch}
+        requests={enrollRequests}
+        onApprove={handleApproveRequest}
+        onReject={handleRejectRequest}
+      />
 
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -329,6 +326,92 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className="text-foreground text-sm">{value || "—"}</p>
+    </div>
+  );
+}
+
+function TnxVerificationPanel({
+  value, onChange, requests, onApprove, onReject,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  requests: EnrollRequest[];
+  onApprove: (reqId: string, userId: string, courseName: string) => void;
+  onReject: (reqId: string, userId: string, courseName: string) => void;
+}) {
+  const q = value.trim().toLowerCase();
+  const matches = q.length >= 3
+    ? requests.filter(r => (r.transactionId || "").toLowerCase().includes(q))
+    : [];
+  const exact = q ? requests.filter(r => (r.transactionId || "").toLowerCase() === q) : [];
+
+  return (
+    <div className="mb-4 p-3 sm:p-4 rounded-xl border border-primary/20 bg-primary/5">
+      <div className="flex items-center gap-2 mb-2">
+        <Receipt className="h-4 w-4 text-primary" />
+        <p className="text-sm font-semibold text-foreground">Transaction ID Verify</p>
+      </div>
+      <p className="text-[11px] text-muted-foreground mb-2">
+        SMS থেকে কপি করা Transaction ID এখানে পেস্ট করুন। ম্যাচ করলে সরাসরি Accept করতে পারবেন।
+      </p>
+      <input
+        type="text"
+        placeholder="Paste Transaction ID from SMS..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+      />
+      {q.length > 0 && q.length < 3 && (
+        <p className="text-[11px] text-muted-foreground mt-2">কমপক্ষে ৩ অক্ষর লিখুন...</p>
+      )}
+      {q.length >= 3 && (
+        <div className="mt-3 space-y-2">
+          {matches.length === 0 ? (
+            <p className="text-xs text-destructive">কোনো ম্যাচ পাওয়া যায়নি।</p>
+          ) : (
+            <>
+              <p className="text-[11px] text-muted-foreground">
+                {exact.length > 0 ? `✓ ${exact.length} exact match` : `${matches.length} partial match(es)`}
+              </p>
+              {matches.slice(0, 5).map((r) => {
+                const isExact = (r.transactionId || "").toLowerCase() === q;
+                return (
+                  <div key={r.id} className={`p-2.5 rounded-lg border ${isExact ? "border-success/40 bg-success/5" : "border-border bg-card"}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{r.name}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{r.email}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{r.courseName}</p>
+                        <p className="text-[11px] mt-0.5 font-mono text-foreground/70 break-all">
+                          TnxID: <span className={isExact ? "text-success font-semibold" : ""}>{r.transactionId || "—"}</span>
+                        </p>
+                        <span className={`inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          r.status === "approved" ? "bg-success/15 text-success" :
+                          r.status === "pending" ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"
+                        }`}>{r.status}</span>
+                      </div>
+                      {r.status === "pending" && (
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => onApprove(r.id, r.userId, r.courseName)}
+                            className="p-1.5 rounded-lg bg-success/10 hover:bg-success/20" title="Approve">
+                            <Check className="h-4 w-4 text-success" />
+                          </button>
+                          <button
+                            onClick={() => onReject(r.id, r.userId, r.courseName)}
+                            className="p-1.5 rounded-lg bg-destructive/10 hover:bg-destructive/20" title="Reject">
+                            <X className="h-4 w-4 text-destructive" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

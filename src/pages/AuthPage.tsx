@@ -5,10 +5,8 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { Course } from "@/types";
-import { uploadToImgBB } from "@/lib/imgbb";
-import { Copy, Check, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Copy, Check, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { ImagePreview } from "@/components/ImagePreview";
 
 function PasswordInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   const [show, setShow] = useState(false);
@@ -46,9 +44,6 @@ export default function AuthPage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentNumber, setPaymentNumber] = useState("");
   const [transactionId, setTransactionId] = useState("");
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [screenshotUrl, setScreenshotUrl] = useState("");
-  const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
   const [course, setCourse] = useState<Course | null>(null);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState(courseId);
@@ -104,17 +99,14 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourseId || !course) { toast.error("Please select a course first"); return; }
+    if (!transactionId.trim()) { toast.error("Transaction ID is required"); return; }
     setSubmitting(true);
     try {
-      let finalScreenshotUrl = screenshotUrl;
-      if (uploadMode === "file" && screenshotFile) {
-        finalScreenshotUrl = await uploadToImgBB(screenshotFile);
-      }
-
+      const tnxId = transactionId.trim();
       const userId = await register(email, password, name);
       await addDoc(collection(db, "enrollRequests"), {
         userId, name, email, courseId: selectedCourseId, courseName: course.courseName,
-        paymentMethod, paymentNumber, transactionId, screenshot: finalScreenshotUrl,
+        paymentMethod, paymentNumber, transactionId: tnxId,
         status: "pending", createdAt: Timestamp.now(),
       });
       await updateDoc(doc(db, "users", userId), {
@@ -123,7 +115,7 @@ export default function AuthPage() {
           courseThumbnail: course.thumbnail || "", enrolledAt: Timestamp.now(),
         }),
         activeCourseId: selectedCourseId,
-        paymentInfo: { method: paymentMethod, paymentNumber, transactionId, screenshot: finalScreenshotUrl },
+        paymentInfo: { method: paymentMethod, paymentNumber, transactionId: tnxId, screenshot: "" },
       });
       toast.success("Registration successful! Waiting for approval.");
       navigate("/profile");
@@ -226,41 +218,8 @@ export default function AuthPage() {
           )}
 
           <input type="text" placeholder="Payment Number" value={paymentNumber} onChange={(e) => setPaymentNumber(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-          <input type="text" placeholder="Transaction ID" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-
-          {/* Screenshot: File or URL */}
-          <div>
-            <p className="text-sm font-medium text-foreground mb-2">Payment Screenshot</p>
-            <div className="flex gap-2 mb-2">
-              <button type="button" onClick={() => setUploadMode("file")} className={`flex-1 py-2 text-xs font-medium rounded-md border ${uploadMode === "file" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}>
-                Upload File
-              </button>
-              <button type="button" onClick={() => setUploadMode("url")} className={`flex-1 py-2 text-xs font-medium rounded-md border ${uploadMode === "url" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"}`}>
-                Image URL
-              </button>
-            </div>
-            {uploadMode === "file" ? (
-              <>
-                <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} className="w-full text-sm text-foreground" />
-                <ImagePreview file={screenshotFile} />
-              </>
-            ) : (
-              <div className="flex gap-1.5 sm:gap-2">
-                <input
-                  type="url"
-                  placeholder="https://i.postimg.cc/..."
-                  value={screenshotUrl}
-                  onChange={(e) => setScreenshotUrl(e.target.value)}
-                  className="flex-1 min-w-0 px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm"
-                />
-                <a href="https://postimages.org" target="_blank" rel="noopener noreferrer" title="Get Image URL"
-                  className="flex-shrink-0 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-medium hover:bg-primary/20 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Get URL
-                </a>
-              </div>
-            )}
-          </div>
+          <input type="text" required placeholder="Transaction ID (from payment SMS)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
+          <p className="text-[11px] text-muted-foreground -mt-2">পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন। এডমিন এই আইডি দিয়েই ভেরিফাই করবে।</p>
 
           <button type="submit" disabled={submitting} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50">{submitting ? "Registering..." : "Register & Enroll"}</button>
         </form>
