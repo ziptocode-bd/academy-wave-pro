@@ -181,12 +181,6 @@ export default function AdminUsersPage() {
                               <DetailRow label="Number" value={courseReq.paymentNumber} />
                               <DetailRow label="Transaction ID" value={courseReq.transactionId} />
                             </div>
-                            {courseReq.screenshot && (
-                              <div>
-                                <p className="text-[11px] text-muted-foreground mb-1 flex items-center gap-1"><ImageIcon className="h-3 w-3" /> Screenshot</p>
-                                <ImagePreview file={null} url={courseReq.screenshot} size="lg" />
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
