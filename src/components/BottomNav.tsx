@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, PlaySquare, ClipboardList, User, LayoutGrid, Video, GraduationCap } from "lucide-react";
+import { Home, FileText, ClipboardList, User, LayoutGrid, Video, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const userTabs = [
