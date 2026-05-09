@@ -6,9 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { Course } from "@/types";
 import { uploadToImgBB } from "@/lib/imgbb";
-import { Copy, Check, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Copy, Check, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { ImagePreview } from "@/components/ImagePreview";
 
 function PasswordInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   const [show, setShow] = useState(false);
