@@ -28,6 +28,7 @@ export default function AdminUsersPage() {
   const [courseFilter, setCourseFilter] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserWithId | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [tnxSearch, setTnxSearch] = useState("");
 
   const fetchData = async () => {
     invalidateCache("users");
