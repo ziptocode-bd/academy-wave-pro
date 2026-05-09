@@ -329,13 +329,8 @@ export default function ProfilePage() {
             )}
 
             <input type="text" placeholder="পেমেন্ট নম্বর" value={paymentNumber} onChange={(e) => setPaymentNumber(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-            <input type="text" placeholder="ট্রানজেকশন আইডি" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">পেমেন্ট স্ক্রিনশট</p>
-              <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} className="w-full text-sm text-foreground" />
-              <ImagePreview file={screenshotFile} />
-            </div>
+            <input type="text" required placeholder="ট্রানজেকশন আইডি (পেমেন্ট SMS থেকে)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
+            <p className="text-[11px] text-muted-foreground -mt-2">পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন।</p>
 
             <button onClick={handleReEnrollSubmit} disabled={submitting} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50">
               {submitting ? "পাঠানো হচ্ছে..." : "পুনরায় এনরোল রিকোয়েস্ট পাঠান"}
