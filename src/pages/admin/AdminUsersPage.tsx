@@ -202,12 +202,6 @@ export default function AdminUsersPage() {
                   <DetailRow label="Number" value={selectedUser.paymentInfo.paymentNumber} />
                   <DetailRow label="Transaction ID" value={selectedUser.paymentInfo.transactionId} />
                 </div>
-                {selectedUser.paymentInfo.screenshot && (
-                  <div className="mt-2">
-                    <p className="text-[11px] text-muted-foreground mb-1">Screenshot</p>
-                    <ImagePreview file={null} url={selectedUser.paymentInfo.screenshot} size="lg" />
-                  </div>
-                )}
               </div>
             )}
           </div>
