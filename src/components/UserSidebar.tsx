@@ -90,7 +90,7 @@ export function UserSidebar({ open, onClose }: Props) {
           {/* Main Menu — Exams সবসময় দেখাবে */}
           <p className="px-3 py-1.5 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Menu</p>
           <SidebarLink to="/home"      icon={Home}          label="Home"      onClick={onClose} active={isActive("/home") || isActive("/")} />
-          <SidebarLink to="/content" icon={PlaySquare}    label="Content" onClick={onClose} active={isActive("/content")} />
+          <SidebarLink to="/content" icon={FileText}    label="Content" onClick={onClose} active={isActive("/content")} />
           <SidebarLink to="/exams"     icon={ClipboardList} label="Exams"     onClick={onClose} active={isActive("/exams")} />
           <SidebarLink to="/profile"   icon={User}          label="Profile"   onClick={onClose} active={isActive("/profile")} />
 
