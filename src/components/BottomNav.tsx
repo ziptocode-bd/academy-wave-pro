@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const userTabs = [
   { to: "/home", icon: Home, label: "Home" },
-  { to: "/content", icon: PlaySquare, label: "Content" },
+  { to: "/content", icon: FileText, label: "Content" },
   { to: "/exams", icon: ClipboardList, label: "Exam" },
   { to: "/profile", icon: User, label: "Profile" },
 ];
