@@ -56,15 +56,33 @@ export default function AdminExamsPage() {
   const viewResults = async (exam: Exam) => {
     setResultsExam(exam);
     setGradingSubmission(null);
-    const q = query(
-      collection(examDb, "submissions"),
-      where("examId", "==", exam.id),
-      orderBy("obtainedMarks", "desc")
-    );
-    const snap = await getDocs(q);
-    const subs = snap.docs.map(d => ({ id: d.id, ...d.data() } as ExamSubmission));
-    setSubmissions(subs);
+    setSubmissions([]);
     setActiveTab("results");
+    try {
+      // Avoid composite-index requirement: filter only, sort client-side
+      const q = query(
+        collection(examDb, "submissions"),
+        where("examId", "==", exam.id)
+      );
+      const snap = await getDocs(q);
+      const subs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as ExamSubmission))
+        .sort((a, b) => (b.obtainedMarks || 0) - (a.obtainedMarks || 0));
+      setSubmissions(subs);
+    } catch (err: any) {
+      console.error("viewResults failed, falling back to full scan:", err);
+      try {
+        // Fallback for legacy submissions missing examId field
+        const snap = await getDocs(collection(examDb, "submissions"));
+        const subs = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as ExamSubmission))
+          .filter(s => s.examId === exam.id || s.id.startsWith(`${exam.id}_`))
+          .sort((a, b) => (b.obtainedMarks || 0) - (a.obtainedMarks || 0));
+        setSubmissions(subs);
+      } catch (e: any) {
+        toast.error("ফলাফল লোড করা যায়নি: " + (e?.message || "Unknown error"));
+      }
+    }
   };
 
   const openGrading = (sub: ExamSubmission) => {
