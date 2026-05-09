@@ -44,9 +44,6 @@ export default function AuthPage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentNumber, setPaymentNumber] = useState("");
   const [transactionId, setTransactionId] = useState("");
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [screenshotUrl, setScreenshotUrl] = useState("");
-  const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
   const [course, setCourse] = useState<Course | null>(null);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState(courseId);
