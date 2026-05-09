@@ -5,7 +5,6 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { Course } from "@/types";
-import { uploadToImgBB } from "@/lib/imgbb";
 import { Copy, Check, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
