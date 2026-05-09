@@ -60,7 +60,7 @@ export function DesktopUserSidebar() {
         {/* Main Menu — Exams সবসময় দেখাবে */}
         <p className="px-3 py-1.5 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Menu</p>
         <SidebarLink to="/home"      icon={Home}          label="Home"      active={isActive("/home") || isActive("/")} />
-        <SidebarLink to="/content" icon={PlaySquare}    label="Content" active={isActive("/content")} />
+        <SidebarLink to="/content" icon={FileText}    label="Content" active={isActive("/content")} />
         <SidebarLink to="/exams"     icon={ClipboardList} label="Exams"     active={isActive("/exams")} />
         <SidebarLink to="/profile"   icon={User}          label="Profile"   active={isActive("/profile")} />
 
