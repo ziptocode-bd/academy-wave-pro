@@ -90,41 +90,37 @@ export default function ProfilePage() {
   const [reEnrollCourse, setReEnrollCourse] = useState<{ courseId: string; courseName: string; courseThumbnail: string } | null>(null);
 
   const resetEnrollForm = () => {
-    setSelectedCourse(null); setPaymentMethod(""); setPaymentNumber(""); setTransactionId(""); setScreenshotFile(null);
+    setSelectedCourse(null); setPaymentMethod(""); setPaymentNumber(""); setTransactionId("");
     setReEnrollCourse(null);
   };
 
   const handleReEnrollSubmit = async () => {
     if (!reEnrollCourse) return;
     if (!paymentMethod && settings.paymentMethods?.length > 0) { toast.error("Please select a payment method"); return; }
+    if (!transactionId.trim()) { toast.error("Transaction ID আবশ্যক"); return; }
     setSubmitting(true);
     try {
-      // Find and update the existing rejected request
+      const tnxId = transactionId.trim();
       const reqSnap = await getDocs(query(collection(db, "enrollRequests"),
         where("userId", "==", user.uid),
         where("courseId", "==", reEnrollCourse.courseId)
       ));
-      let screenshotUrl = "";
-      if (screenshotFile) screenshotUrl = await uploadToImgBB(screenshotFile);
 
       if (!reqSnap.empty) {
-        // Update existing rejected request back to pending
         await updateDoc(doc(db, "enrollRequests", reqSnap.docs[0].id), {
           status: "pending",
-          paymentMethod, paymentNumber, transactionId,
-          screenshot: screenshotUrl || reqSnap.docs[0].data().screenshot,
+          paymentMethod, paymentNumber, transactionId: tnxId,
           createdAt: Timestamp.now(),
         });
       } else {
         await addDoc(collection(db, "enrollRequests"), {
           userId: user.uid, name: userDoc.name, email: userDoc.email,
           courseId: reEnrollCourse.courseId, courseName: reEnrollCourse.courseName,
-          paymentMethod, paymentNumber, transactionId, screenshot: screenshotUrl,
+          paymentMethod, paymentNumber, transactionId: tnxId,
           status: "pending", createdAt: Timestamp.now(),
         });
       }
       await refreshUserDoc();
-      // Refresh statuses
       const snap = await getDocs(query(collection(db, "enrollRequests"), where("userId", "==", user.uid)));
       const statuses: Record<string, string> = {};
       snap.docs.forEach((d) => { const data = d.data() as { courseId: string; status: string }; statuses[data.courseId] = data.status; });
@@ -140,14 +136,14 @@ export default function ProfilePage() {
   const handleEnrollSubmit = async () => {
     if (!selectedCourse) { toast.error("Please select a course"); return; }
     if (!paymentMethod && settings.paymentMethods?.length > 0) { toast.error("Please select a payment method"); return; }
+    if (!transactionId.trim()) { toast.error("Transaction ID is required"); return; }
     setSubmitting(true);
     try {
-      let screenshotUrl = "";
-      if (screenshotFile) screenshotUrl = await uploadToImgBB(screenshotFile);
+      const tnxId = transactionId.trim();
       await addDoc(collection(db, "enrollRequests"), {
         userId: user.uid, name: userDoc.name, email: userDoc.email,
         courseId: selectedCourse.id, courseName: selectedCourse.courseName,
-        paymentMethod, paymentNumber, transactionId, screenshot: screenshotUrl,
+        paymentMethod, paymentNumber, transactionId: tnxId,
         status: "pending", createdAt: Timestamp.now(),
       });
       await updateDoc(doc(db, "users", user.uid), {
