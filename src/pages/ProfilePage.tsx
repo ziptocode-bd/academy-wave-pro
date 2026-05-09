@@ -27,7 +27,6 @@ export default function ProfilePage() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentNumber, setPaymentNumber] = useState("");
   const [transactionId, setTransactionId] = useState("");
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [courseRequestStatuses, setCourseRequestStatuses] = useState<Record<string, string>>({});
