@@ -5,9 +5,8 @@ import { db } from "@/lib/firebase";
 import { UserDoc, EnrollRequest, Course } from "@/types";
 import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { toast } from "sonner";
-import { Check, X, ChevronLeft, Search, Users, BookOpen, Clock, Calendar, CreditCard, Image as ImageIcon, ChevronRight } from "lucide-react";
+import { Check, X, ChevronLeft, Search, Users, BookOpen, Clock, Calendar, CreditCard, ChevronRight, Receipt } from "lucide-react";
 import { AdminListSkeleton } from "@/components/skeletons/AdminSkeleton";
-import { ImagePreview } from "@/components/ImagePreview";
 
 interface UserWithId extends UserDoc { id: string; }
 
