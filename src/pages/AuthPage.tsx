@@ -99,17 +99,14 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourseId || !course) { toast.error("Please select a course first"); return; }
+    if (!transactionId.trim()) { toast.error("Transaction ID is required"); return; }
     setSubmitting(true);
     try {
-      let finalScreenshotUrl = screenshotUrl;
-      if (uploadMode === "file" && screenshotFile) {
-        finalScreenshotUrl = await uploadToImgBB(screenshotFile);
-      }
-
+      const tnxId = transactionId.trim();
       const userId = await register(email, password, name);
       await addDoc(collection(db, "enrollRequests"), {
         userId, name, email, courseId: selectedCourseId, courseName: course.courseName,
-        paymentMethod, paymentNumber, transactionId, screenshot: finalScreenshotUrl,
+        paymentMethod, paymentNumber, transactionId: tnxId,
         status: "pending", createdAt: Timestamp.now(),
       });
       await updateDoc(doc(db, "users", userId), {
@@ -118,7 +115,7 @@ export default function AuthPage() {
           courseThumbnail: course.thumbnail || "", enrolledAt: Timestamp.now(),
         }),
         activeCourseId: selectedCourseId,
-        paymentInfo: { method: paymentMethod, paymentNumber, transactionId, screenshot: finalScreenshotUrl },
+        paymentInfo: { method: paymentMethod, paymentNumber, transactionId: tnxId, screenshot: "" },
       });
       toast.success("Registration successful! Waiting for approval.");
       navigate("/profile");
