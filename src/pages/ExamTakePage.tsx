@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, addDoc, collection, getDocs, query, where, setDoc, Timestamp, increment } from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp, increment } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam, ExamAnswer, ExamSubmission } from "@/types/exam";
-import { uploadToImgBB } from "@/lib/imgbb";
 import { toast } from "sonner";
 import {
-  Camera, Clock, ChevronLeft, ChevronRight, Send, Trophy, CheckCircle, XCircle,
-  ArrowLeft, Award, TrendingDown, Shield, AlertTriangle, Monitor, Maximize, ZoomIn,
-  BookOpen, FileText, Users, Timer, Star, MinusCircle,
+  Clock, ChevronLeft, ChevronRight, Send, Trophy, CheckCircle, XCircle,
+  ArrowLeft, Award, TrendingDown, Shield, AlertTriangle, Monitor, Maximize,
+  BookOpen, Users, Timer, Star, MinusCircle,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -36,17 +35,10 @@ export default function ExamTakePage() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [totalParticipants, setTotalParticipants] = useState(0);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [isUploadingWrittenState, setIsUploadingWrittenState] = useState(false);
   const [rulesAccepted, setRulesAccepted] = useState(false);
-  const [examEntered, setExamEntered] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const submittedRef = useRef(false);
-
-  const isWrittenOnlyExam = exam ? exam.questions.every(q => q.type === "written") : false;
-  const hasMcqQuestions = exam ? exam.questions.some(q => q.type === "mcq") : false;
 
   const handleSuspiciousAutoSubmit = useCallback(() => {
     if (submittedRef.current) return;
@@ -55,29 +47,16 @@ export default function ExamTakePage() {
   }, []);
 
   const handleFullscreenExitConfirm = useCallback(() => {
-    if (submittedRef.current || isUploadingWrittenState) return;
+    if (submittedRef.current) return;
     setShowExitConfirm(true);
-  }, [isUploadingWrittenState]);
-
-  const isCurrentQuestionWritten = exam?.questions?.[currentQ]?.type === "written";
+  }, []);
 
   const { requestFullscreen, exitFullscreen, isFullscreen } = useExamSecurity({
-    enabled: started && !submitted && hasMcqQuestions,
+    enabled: started && !submitted,
     onSuspiciousActivity: handleSuspiciousAutoSubmit,
     onFullscreenExit: handleFullscreenExitConfirm,
     maxTabSwitches: 2,
-    isUploadingWritten: isUploadingWrittenState,
-    isWrittenExam: isWrittenOnlyExam,
   });
-
-  useEffect(() => {
-    const checkEntry = async () => {
-      if (!examId || !user) return;
-      const entryDoc = await getDoc(doc(examDb, "examEntries", `${examId}_${user.uid}`));
-      if (entryDoc.exists()) setExamEntered(true);
-    };
-    checkEntry();
-  }, [examId, user]);
 
   useEffect(() => {
     const fetchExam = async () => {
@@ -149,19 +128,9 @@ export default function ExamTakePage() {
 
   const startExam = async () => {
     if (!exam || !user) return;
-    try {
-      await setDoc(doc(examDb, "examEntries", `${exam.id}_${user.uid}`), {
-        examId: exam.id,
-        userId: user.uid,
-        enteredAt: Timestamp.now(),
-      });
-      setExamEntered(true);
-    } catch (err) {
-      console.error("Failed to record exam entry:", err);
-    }
     setTimeLeft(exam.duration * 60);
     setStarted(true);
-    if (hasMcqQuestions) requestFullscreen();
+    requestFullscreen();
     const initial: Record<string, ExamAnswer> = {};
     exam.questions.forEach(q => {
       initial[q.id] = { questionId: q.id, marks: q.marks };
@@ -176,28 +145,6 @@ export default function ExamTakePage() {
     }));
   };
 
-  const handleCameraCapture = async (questionId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingImage(true);
-    setIsUploadingWrittenState(true);
-    try {
-      const url = await uploadToImgBB(file);
-      setAnswers(prev => ({
-        ...prev,
-        [questionId]: { ...prev[questionId], writtenImageUrl: url },
-      }));
-      toast.success("ছবি আপলোড হয়েছে");
-    } catch {
-      toast.error("আপলোড ব্যর্থ হয়েছে");
-    }
-    setUploadingImage(false);
-    setIsUploadingWrittenState(false);
-    if (hasMcqQuestions) {
-      setTimeout(() => requestFullscreen(), 500);
-    }
-  };
-
   const handleSubmitInternal = useCallback(async () => {
     if (!exam || !user || !userDoc || submitting || submittedRef.current) return;
     submittedRef.current = true;
@@ -208,11 +155,8 @@ export default function ExamTakePage() {
 
     const answersList: ExamAnswer[] = exam.questions.map(q => {
       const ans = answers[q.id] || { questionId: q.id, marks: q.marks };
-      if (q.type === "mcq") {
-        const isCorrect = ans.selectedOption === q.correctAnswer;
-        return { ...ans, isCorrect, marks: q.marks };
-      }
-      return ans;
+      const isCorrect = ans.selectedOption === q.correctAnswer;
+      return { questionId: q.id, selectedOption: ans.selectedOption, isCorrect, marks: q.marks };
     });
 
     const correctCount = answersList.filter(a => a.isCorrect).length;
@@ -242,17 +186,15 @@ export default function ExamTakePage() {
       const submissionId = `${exam.id}_${user.uid}`;
       const submissionRef = doc(examDb, "submissions", submissionId);
       await setDoc(submissionRef, submission);
-      const docRef = { id: submissionId };
 
-      // Atomically increment participant count (cheap: 1 write per submission)
       try {
         const counterRef = doc(examDb, "examCounters", exam.id);
         await setDoc(counterRef, { totalParticipants: increment(1) }, { merge: true });
       } catch {
-        // Non-critical — don't fail the submission if counter fails
+        // Non-critical
       }
 
-      const resultSub = { id: docRef.id, ...submission } as ExamSubmission;
+      const resultSub = { id: submissionId, ...submission } as ExamSubmission;
       setResult(resultSub);
       setSubmitted(true);
       setStarted(false);
@@ -271,24 +213,6 @@ export default function ExamTakePage() {
   if (loading) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>;
   if (!exam) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Exam not found</div>;
 
-  if (examEntered && !existingSubmission && !started && !submitted) {
-    const canReEnter = examStarted && !examEnded;
-    if (!canReEnter) {
-      return (
-        <div className="p-4 max-w-lg mx-auto animate-fade-in">
-          <button onClick={() => navigate("/exams")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
-            <ArrowLeft className="h-4 w-4" /> Back to Exams
-          </button>
-          <div className="bg-card border border-border rounded-xl p-6 text-center">
-            <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-3" />
-            <h2 className="text-lg font-semibold text-foreground mb-2">পরীক্ষায় পুনরায় প্রবেশ করা যাবে না</h2>
-            <p className="text-sm text-muted-foreground">আপনি এই পরীক্ষায় আগে প্রবেশ করেছিলেন কিন্তু সাবমিট করেননি। পরীক্ষার সময় শেষ হয়ে গেছে।</p>
-          </div>
-        </div>
-      );
-    }
-  }
-
   // ─── Result View ────────────────────────────────────────────────────────────
   if (submitted && result) {
     const passed = result.obtainedMarks >= (exam.passMark || 0);
@@ -301,24 +225,19 @@ export default function ExamTakePage() {
           <ArrowLeft className="h-4 w-4" /> Back to Exams
         </button>
 
-        {/* Result Card */}
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-          {/* Top gradient strip based on pass/fail */}
           <div className={`h-2 w-full ${passed ? "bg-gradient-to-r from-green-400 to-emerald-500" : "bg-gradient-to-r from-red-400 to-rose-500"}`} />
 
           <div className="p-6 text-center">
-            {/* Exam title */}
             <h2 className="text-base font-semibold text-foreground">{exam.title}</h2>
             <p className="text-xs text-muted-foreground mt-0.5 mb-5">Your Result</p>
 
-            {/* Big score */}
             <div className="text-5xl font-bold tracking-tight text-foreground">
               {result.obtainedMarks}
               <span className="text-2xl font-normal text-muted-foreground">/{result.totalMarks}</span>
             </div>
             <p className="text-sm text-muted-foreground mt-1">{scorePercent}% scored</p>
 
-            {/* Pass / Fail badge */}
             <div className="mt-4">
               <span className={`inline-flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-semibold ${passed
                 ? "bg-green-500/10 text-green-600 dark:text-green-400 ring-1 ring-green-500/20"
@@ -331,7 +250,6 @@ export default function ExamTakePage() {
               </span>
             </div>
 
-            {/* Stats grid — 3 columns */}
             <div className="grid grid-cols-3 gap-3 mt-6">
               <div className="bg-green-500/8 border border-green-500/20 rounded-xl p-3">
                 <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mx-auto mb-1" />
@@ -350,32 +268,18 @@ export default function ExamTakePage() {
               </div>
             </div>
 
-            {/* Secondary info row */}
-            {((exam.negativeMark || 0) > 0 && negativeTotal > 0) || (result.writtenMarks !== undefined && result.writtenMarks > 0) ? (
+            {(exam.negativeMark || 0) > 0 && negativeTotal > 0 && (
               <div className="flex items-center justify-center gap-4 mt-4 flex-wrap">
-                {(exam.negativeMark || 0) > 0 && negativeTotal > 0 && (
-                  <div className="flex items-center gap-1.5 text-sm">
-                    <MinusCircle className="h-4 w-4 text-destructive" />
-                    <span className="text-muted-foreground">নেগেটিভ:</span>
-                    <span className="font-semibold text-destructive">-{negativeTotal}</span>
-                  </div>
-                )}
-                {result.writtenMarks !== undefined && result.writtenMarks > 0 && (
-                  <div className="flex items-center gap-1.5 text-sm">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-muted-foreground">লিখিত:</span>
-                    <span className="font-semibold text-foreground">
-                      {result.writtenMarks}
-                      {!result.writtenGraded && <span className="text-xs text-muted-foreground ml-1">(মূল্যায়ন বাকি)</span>}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 text-sm">
+                  <MinusCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-muted-foreground">নেগেটিভ:</span>
+                  <span className="font-semibold text-destructive">-{negativeTotal}</span>
+                </div>
               </div>
-            ) : null}
+            )}
           </div>
         </div>
 
-        {/* Own Ranking Section */}
         {examEnded && exam.resultPublished && (
           <div className="mt-4">
             {myRank === null ? (
@@ -387,7 +291,6 @@ export default function ExamTakePage() {
               </button>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-                {/* Trophy card header */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-accent/30">
                   <div className="h-8 w-8 rounded-full bg-yellow-500/15 flex items-center justify-center">
                     <Trophy className="h-4 w-4 text-yellow-500" />
@@ -428,8 +331,7 @@ export default function ExamTakePage() {
             return (
               <div key={q.id} className="bg-card border border-border rounded-xl p-3">
                 <p className="text-sm font-medium text-foreground">
-                  Q{idx + 1}. {q.questionText}{" "}
-                  <span className="text-xs text-muted-foreground">({q.type === "mcq" ? "MCQ" : "Written"})</span>
+                  Q{idx + 1}. {q.questionText}
                 </p>
                 {q.questionImage && (
                   <img
@@ -439,7 +341,7 @@ export default function ExamTakePage() {
                     onClick={() => setPreviewImage(q.questionImage!)}
                   />
                 )}
-                {q.type === "mcq" && q.options && (
+                {q.options && (
                   <div className="mt-2 space-y-1">
                     {q.options.map((opt, oIdx) => {
                       const isCorrect = oIdx === q.correctAnswer;
@@ -459,38 +361,6 @@ export default function ExamTakePage() {
                     })}
                   </div>
                 )}
-                {q.type === "written" && ans?.writtenImageUrl && (
-                  <div className="mt-2">
-                    <p className="text-xs text-muted-foreground mb-1">Your answer:</p>
-                    <div className="relative inline-block group cursor-pointer" onClick={() => setPreviewImage(ans.writtenImageUrl!)}>
-                      <img src={ans.writtenImageUrl} alt="Answer" className="h-32 rounded-lg object-contain" />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                        <ZoomIn className="h-6 w-6 text-white" />
-                      </div>
-                    </div>
-                    {ans.writtenMarksAwarded !== undefined && (
-                      <p className="text-xs mt-1 text-foreground font-medium">Marks: {ans.writtenMarksAwarded}/{q.marks}</p>
-                    )}
-                  </div>
-                )}
-                {q.type === "written" && !ans?.writtenImageUrl && (
-                  <p className="text-xs text-muted-foreground italic mt-2">No answer submitted</p>
-                )}
-                {q.type === "written" && q.writtenAnswer && (
-                  <div className="mt-2 p-2 bg-green-500/10 rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-1">Correct Answer:</p>
-                    {q.writtenAnswer.startsWith("http") ? (
-                      <div className="relative inline-block group cursor-pointer" onClick={() => setPreviewImage(q.writtenAnswer!)}>
-                        <img src={q.writtenAnswer} alt="Answer" className="h-32 rounded-lg object-contain" />
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                          <ZoomIn className="h-6 w-6 text-white" />
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-foreground">{q.writtenAnswer}</p>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -503,49 +373,36 @@ export default function ExamTakePage() {
 
   // ─── Pre-start View ─────────────────────────────────────────────────────────
   if (!started) {
-    const mcqCount = exam.questions.filter(q => q.type === "mcq").length;
-    const writtenCount = exam.questions.filter(q => q.type === "written").length;
-    const examTypeLabel =
-      mcqCount > 0 && writtenCount > 0 ? "MCQ + Written" :
-      mcqCount > 0 ? "MCQ" : "Written";
-
     const rules: { icon: React.ReactNode; text: React.ReactNode; variant: "primary" | "danger" }[] = [
-      ...(hasMcqQuestions ? [
-        {
-          icon: <Maximize className="h-3.5 w-3.5" />,
-          text: <>পরীক্ষা <strong>ফুলস্ক্রিন মোডে</strong> চলবে। বের হতে চাইলে অবশ্যই <strong>সাবমিট</strong> করতে হবে।</>,
-          variant: "primary" as const,
-        },
-        {
-          icon: <AlertTriangle className="h-3.5 w-3.5" />,
-          text: <><strong>২ বার ট্যাব সুইচ</strong> করলে পরীক্ষা <strong>অটো-সাবমিট</strong> হয়ে যাবে।</>,
-          variant: "danger" as const,
-        },
-        {
-          icon: <XCircle className="h-3.5 w-3.5" />,
-          text: <><strong>কপি, পেস্ট এবং রাইট-ক্লিক</strong> পরীক্ষা চলাকালীন নিষিদ্ধ।</>,
-          variant: "danger" as const,
-        },
-      ] : []),
+      {
+        icon: <Maximize className="h-3.5 w-3.5" />,
+        text: <>পরীক্ষা <strong>ফুলস্ক্রিন মোডে</strong> চলবে। বের হতে চাইলে অবশ্যই <strong>সাবমিট</strong> করতে হবে।</>,
+        variant: "primary",
+      },
+      {
+        icon: <AlertTriangle className="h-3.5 w-3.5" />,
+        text: <><strong>২ বার ট্যাব সুইচ</strong> করলে পরীক্ষা <strong>অটো-সাবমিট</strong> হয়ে যাবে।</>,
+        variant: "danger",
+      },
+      {
+        icon: <XCircle className="h-3.5 w-3.5" />,
+        text: <><strong>কপি, পেস্ট এবং রাইট-ক্লিক</strong> পরীক্ষা চলাকালীন নিষিদ্ধ।</>,
+        variant: "danger",
+      },
       {
         icon: <Monitor className="h-3.5 w-3.5" />,
         text: <>আপনার <strong>ডিভাইস ও ব্রাউজার তথ্য</strong> রেকর্ড করা হবে।</>,
-        variant: "primary" as const,
+        variant: "primary",
       },
-      ...(hasMcqQuestions ? [{
-        icon: <Camera className="h-3.5 w-3.5" />,
-        text: <><strong>স্ক্রিনশট</strong> নেওয়া যাবে না।</>,
-        variant: "danger" as const,
-      }] : []),
       {
         icon: <Clock className="h-3.5 w-3.5" />,
         text: <>সময় শেষ হলে পরীক্ষা <strong>অটো-সাবমিট</strong> হবে।</>,
-        variant: "primary" as const,
+        variant: "primary",
       },
       {
         icon: <Shield className="h-3.5 w-3.5" />,
         text: <>একবার পরীক্ষায় প্রবেশ করলে <strong>সাবমিট না করে বের হওয়া যাবে না</strong>। পরবর্তীতে আবার দেওয়া যাবে না।</>,
-        variant: "danger" as const,
+        variant: "danger",
       },
     ];
 
@@ -555,7 +412,6 @@ export default function ExamTakePage() {
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
 
-        {/* ── Header card ── */}
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <div className="bg-gradient-to-br from-primary/10 to-primary/5 border-b border-border px-5 py-5">
             <div className="flex items-start gap-3">
@@ -569,10 +425,9 @@ export default function ExamTakePage() {
             </div>
           </div>
 
-          {/* ── Info grid 2-col ── */}
           <div className="grid grid-cols-2 gap-px bg-border">
             {[
-              { label: "ধরন", value: examTypeLabel },
+              { label: "ধরন", value: "MCQ" },
               { label: "প্রশ্ন সংখ্যা", value: `${exam.questions.length}টি` },
               { label: "মোট নম্বর", value: exam.totalMarks },
               { label: "সময়কাল", value: `${exam.duration} মিনিট` },
@@ -601,16 +456,13 @@ export default function ExamTakePage() {
           </div>
         </div>
 
-        {/* ── Rules section ── */}
         {examStarted && !examEnded && !existingSubmission && (
           <div className="mt-4 space-y-3">
-            {/* Section header */}
             <div className="flex items-center gap-2 px-1">
               <Shield className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold text-foreground">পরীক্ষার নিয়ম ও নিরাপত্তা</h3>
             </div>
 
-            {/* Rule items */}
             <div className="space-y-2">
               {rules.map((rule, i) => (
                 <div
@@ -621,7 +473,6 @@ export default function ExamTakePage() {
                       : "bg-primary/5 border-primary/15"
                   }`}
                 >
-                  {/* Round icon badge */}
                   <span className={`shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center ${
                     rule.variant === "danger"
                       ? "bg-destructive/15 text-destructive"
@@ -634,7 +485,6 @@ export default function ExamTakePage() {
               ))}
             </div>
 
-            {/* Agree checkbox — full card */}
             <label
               className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
                 rulesAccepted
@@ -653,7 +503,6 @@ export default function ExamTakePage() {
               </span>
             </label>
 
-            {/* Start button */}
             <button
               onClick={startExam}
               disabled={!rulesAccepted}
@@ -679,13 +528,12 @@ export default function ExamTakePage() {
               {exam.questions.map((q, idx) => (
                 <div key={q.id} className="bg-card border border-border rounded-xl p-3">
                   <p className="text-sm font-medium text-foreground">
-                    Q{idx + 1}. {q.questionText}{" "}
-                    <span className="text-xs text-muted-foreground">({q.type === "mcq" ? "MCQ" : "Written"})</span>
+                    Q{idx + 1}. {q.questionText}
                   </p>
                   {q.questionImage && (
                     <img src={q.questionImage} alt="" className="h-24 rounded-lg object-contain mt-2 cursor-pointer hover:opacity-80" onClick={() => setPreviewImage(q.questionImage!)} />
                   )}
-                  {q.type === "mcq" && q.options && (
+                  {q.options && (
                     <div className="mt-2 space-y-1">
                       {q.options.map((opt, oIdx) => {
                         const isCorrect = oIdx === q.correctAnswer;
@@ -698,21 +546,6 @@ export default function ExamTakePage() {
                           </div>
                         );
                       })}
-                    </div>
-                  )}
-                  {q.type === "written" && q.writtenAnswer && (
-                    <div className="mt-2 p-2 bg-green-500/10 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Correct Answer:</p>
-                      {q.writtenAnswer.startsWith("http") ? (
-                        <div className="relative inline-block group cursor-pointer" onClick={() => setPreviewImage(q.writtenAnswer!)}>
-                          <img src={q.writtenAnswer} alt="Answer" className="h-32 rounded-lg object-contain" />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <ZoomIn className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-foreground">{q.writtenAnswer}</p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -731,16 +564,6 @@ export default function ExamTakePage() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto animate-fade-in select-none">
-      {/* Fullscreen reminder during written upload */}
-      {!isFullscreen && started && isUploadingWrittenState && hasMcqQuestions && (
-        <div
-          className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-2 text-sm font-medium cursor-pointer"
-          onClick={requestFullscreen}
-        >
-          📸 ছবি আপলোড মোড — আপলোড শেষে ফুলস্ক্রিনে ফিরে যেতে এখানে ক্লিক করুন
-        </div>
-      )}
-
       {/* Timer bar */}
       <div className="sticky top-0 z-40 bg-background border-b border-border -mx-4 px-4 py-2 flex items-center justify-between">
         <span className="text-sm text-foreground font-medium">Q {currentQ + 1}/{exam.questions.length}</span>
@@ -749,10 +572,9 @@ export default function ExamTakePage() {
         </span>
       </div>
 
-      {/* Question navigation dots */}
       <div className="flex flex-wrap gap-1.5 mt-3 mb-4">
         {exam.questions.map((q, idx) => {
-          const answered = answers[q.id]?.selectedOption !== undefined || answers[q.id]?.writtenImageUrl;
+          const answered = answers[q.id]?.selectedOption !== undefined;
           return (
             <button
               key={q.id}
@@ -771,7 +593,6 @@ export default function ExamTakePage() {
         })}
       </div>
 
-      {/* Question */}
       <div className="bg-card border border-border rounded-xl p-4">
         <p className="text-sm font-medium text-foreground mb-1">
           Question {currentQ + 1} <span className="text-muted-foreground">({question.marks} marks)</span>
@@ -781,7 +602,7 @@ export default function ExamTakePage() {
           <img src={question.questionImage} alt="" className="mt-3 max-h-48 rounded-lg object-contain pointer-events-none" />
         )}
 
-        {question.type === "mcq" && question.options && (
+        {question.options && (
           <div className="mt-4 space-y-2">
             {question.options.map((opt, oIdx) => {
               const selected = answers[question.id]?.selectedOption === oIdx;
@@ -805,33 +626,8 @@ export default function ExamTakePage() {
             })}
           </div>
         )}
-
-        {question.type === "written" && (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground mb-2">Upload your answer (take a photo):</p>
-            <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={e => handleCameraCapture(question.id, e)}
-              className="hidden"
-            />
-            <button
-              onClick={() => { setIsUploadingWrittenState(true); cameraRef.current?.click(); }}
-              disabled={uploadingImage}
-              className="flex items-center gap-2 px-4 py-3 bg-accent border border-border rounded-xl text-sm text-foreground w-full justify-center"
-            >
-              <Camera className="h-4 w-4" /> {uploadingImage ? "Uploading..." : "Take Photo / Upload Image"}
-            </button>
-            {answers[question.id]?.writtenImageUrl && (
-              <img src={answers[question.id].writtenImageUrl} alt="Answer" className="mt-3 max-h-48 rounded-lg object-contain mx-auto pointer-events-none" />
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Navigation */}
       <div className="flex items-center justify-between mt-4">
         <button
           onClick={() => setCurrentQ(Math.max(0, currentQ - 1))}
@@ -859,13 +655,12 @@ export default function ExamTakePage() {
         )}
       </div>
 
-      {/* Submit confirmation */}
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>পরীক্ষা সাবমিট করুন</AlertDialogTitle>
             <AlertDialogDescription>
-              আপনি কি সাবমিট করতে চান? আপনি {Object.values(answers).filter(a => a.selectedOption !== undefined || a.writtenImageUrl).length}/{exam.questions.length} টি প্রশ্নের উত্তর দিয়েছেন।
+              আপনি কি সাবমিট করতে চান? আপনি {Object.values(answers).filter(a => a.selectedOption !== undefined).length}/{exam.questions.length} টি প্রশ্নের উত্তর দিয়েছেন।
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -875,11 +670,10 @@ export default function ExamTakePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Exit/Escape confirmation */}
       <AlertDialog open={showExitConfirm} onOpenChange={(open) => {
         if (!open) {
           setShowExitConfirm(false);
-          if (hasMcqQuestions) setTimeout(() => requestFullscreen(), 200);
+          setTimeout(() => requestFullscreen(), 200);
         }
       }}>
         <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
@@ -892,7 +686,7 @@ export default function ExamTakePage() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
               setShowExitConfirm(false);
-              if (hasMcqQuestions) setTimeout(() => requestFullscreen(), 200);
+              setTimeout(() => requestFullscreen(), 200);
             }}>
               Cancel — পরীক্ষা চালিয়ে যান
             </AlertDialogCancel>

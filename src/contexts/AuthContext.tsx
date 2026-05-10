@@ -51,8 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    await fetchUserDoc(cred.user.uid);
+    await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged will fetchUserDoc
   };
 
   const register = async (email: string, password: string, name: string) => {

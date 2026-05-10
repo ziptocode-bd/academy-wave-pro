@@ -205,13 +205,9 @@ export default function AdminAddExamPage() {
     }
     setSaving(true);
     const totalMarks = questions.reduce((s, q) => s + q.marks, 0);
-    // Determine exam type based on questions
-    const hasMcq = questions.some(q => q.type === "mcq");
-    const hasWritten = questions.some(q => q.type === "written");
-    const type = hasMcq && hasWritten ? "mcq" : hasWritten ? "written" : "mcq";
-    
+
     const data = {
-      title, courseId, courseName: selectedCourse?.courseName || "", type,
+      title, courseId, courseName: selectedCourse?.courseName || "", type: "mcq" as const,
       duration, totalMarks, negativeMark, passMark,
       startTime: Timestamp.fromDate(new Date(startTime)),
       endTime: Timestamp.fromDate(new Date(endTime)),
@@ -400,8 +396,8 @@ function QuestionEditor({ question, index, onUpdate, onRemove, onUpdateOption, o
           {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
         </button>
         <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">{index + 1}</span>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${isMcq ? "bg-primary/10 text-primary" : "bg-accent text-muted-foreground border border-border"}`}>
-          {isMcq ? "MCQ" : "Written"}
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 bg-primary/10 text-primary">
+          MCQ
         </span>
         <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
@@ -462,46 +458,6 @@ function QuestionEditor({ question, index, onUpdate, onRemove, onUpdateOption, o
               <button onClick={onAddOption} className="text-xs text-primary hover:underline ml-5">+ Add Option</button>
             </div>
           )}
-
-          {!isMcq && (
-            <div className="space-y-2 mt-1">
-              <ImageUrlField value={question.questionImage || ""} onChange={(v) => onUpdate({ questionImage: v })} placeholder="Question image URL (optional)" />
-              {question.questionImage && <img src={question.questionImage} alt="" className="h-20 rounded-lg object-contain" />}
-              {/* Answer Image — always visible, with gap */}
-              <div className="pt-2 border-t border-border/50" />
-              {/* Answer Image */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                  <span className="text-[11px] font-medium text-muted-foreground">Answer Image</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    value={question.writtenAnswer || ""}
-                    onChange={e => onUpdate({ writtenAnswer: e.target.value })}
-                    placeholder="সঠিক উত্তরের ইমেজ URL দিন"
-                    className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-background border border-green-400/40 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500/60 transition-all placeholder:text-muted-foreground/50"
-                  />
-                  {question.writtenAnswer && (
-                    <button type="button" onClick={() => onUpdate({ writtenAnswer: "" })} className="p-1.5 hover:bg-destructive/10 text-destructive/50 hover:text-destructive rounded-lg transition-colors shrink-0">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                <a href="https://postimages.org" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" /> Get URL
-                </a>
-                {question.writtenAnswer?.startsWith("http") && (
-                  <div className="relative mt-0.5">
-                    <img src={question.writtenAnswer} alt="Answer preview" className="h-20 rounded-lg object-contain border border-green-300/50 dark:border-green-800/40" />
-                    <span className="absolute top-1 left-1 text-[9px] font-bold bg-green-500 text-white px-1.5 py-0.5 rounded-full">Answer</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -543,74 +499,3 @@ function ImageUrlField({ value, onChange, placeholder, small }: {
   );
 }
 
-/* ── Written Image Field (toggle, same UX as MCQ ImageUrlField) ── */
-function WrittenImageField({ label, labelIcon, value, onChange, placeholder }: {
-  label: string; labelIcon: "question" | "answer";
-  value: string; onChange: (v: string) => void; placeholder: string;
-}) {
-  const [open, setOpen] = useState(!!value);
-  const isAnswer = labelIcon === "answer";
-
-  if (!open && !value) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {isAnswer
-          ? <CheckCircle className="h-3.5 w-3.5 text-green-500/70" />
-          : <Image className="h-3.5 w-3.5" />}
-        <span>Add {label}</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        {isAnswer
-          ? <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
-          : <Image className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-        <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={`flex-1 min-w-0 px-3 py-2 rounded-lg bg-background border text-foreground text-sm focus:outline-none focus:ring-2 transition-all placeholder:text-muted-foreground/50 ${
-            isAnswer
-              ? "border-green-400/40 focus:ring-green-500/20 focus:border-green-500/60"
-              : "border-border focus:ring-primary/30 focus:border-primary"
-          }`}
-        />
-        <button
-          type="button"
-          onClick={() => { onChange(""); setOpen(false); }}
-          className="p-1.5 hover:bg-destructive/10 text-destructive/50 hover:text-destructive rounded-lg transition-colors shrink-0"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      <a
-        href="https://postimages.org"
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-          isAnswer
-            ? "bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
-            : "bg-accent border border-border text-primary hover:bg-primary/10 hover:border-primary/30"
-        }`}
-      >
-        <ExternalLink className="h-3 w-3" /> Get URL
-      </a>
-      {value?.startsWith("http") && (
-        <div className="relative mt-0.5">
-          <img src={value} alt={`${label} preview`} className={`h-20 rounded-lg object-contain border ${isAnswer ? "border-green-300/50 dark:border-green-800/40" : "border-border"}`} />
-          {isAnswer && <span className="absolute top-1 left-1 text-[9px] font-bold bg-green-500 text-white px-1.5 py-0.5 rounded-full">Answer</span>}
-        </div>
-      )}
-    </div>
-  );
-}
