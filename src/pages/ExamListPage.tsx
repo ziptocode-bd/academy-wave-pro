@@ -73,9 +73,7 @@ export default function ExamListPage() {
         <div className="space-y-3">
           {exams.map(exam => {
             const status = getStatus(exam);
-            const mcqCount = exam.questions.filter(q => q.type === "mcq").length;
-            const writtenCount = exam.questions.filter(q => q.type === "written").length;
-            const typeLabel = mcqCount > 0 && writtenCount > 0 ? "MCQ + Written" : mcqCount > 0 ? "MCQ" : "Written";
+            const typeLabel = "MCQ";
             const startDateStr = exam.startTime?.toDate?.()?.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' });
 
             const statusConfig = {
