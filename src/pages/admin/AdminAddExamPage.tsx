@@ -205,13 +205,9 @@ export default function AdminAddExamPage() {
     }
     setSaving(true);
     const totalMarks = questions.reduce((s, q) => s + q.marks, 0);
-    // Determine exam type based on questions
-    const hasMcq = questions.some(q => q.type === "mcq");
-    const hasWritten = questions.some(q => q.type === "written");
-    const type = hasMcq && hasWritten ? "mcq" : hasWritten ? "written" : "mcq";
-    
+
     const data = {
-      title, courseId, courseName: selectedCourse?.courseName || "", type,
+      title, courseId, courseName: selectedCourse?.courseName || "", type: "mcq" as const,
       duration, totalMarks, negativeMark, passMark,
       startTime: Timestamp.fromDate(new Date(startTime)),
       endTime: Timestamp.fromDate(new Date(endTime)),
