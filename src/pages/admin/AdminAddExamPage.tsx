@@ -396,8 +396,8 @@ function QuestionEditor({ question, index, onUpdate, onRemove, onUpdateOption, o
           {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
         </button>
         <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">{index + 1}</span>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${isMcq ? "bg-primary/10 text-primary" : "bg-accent text-muted-foreground border border-border"}`}>
-          {isMcq ? "MCQ" : "Written"}
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 bg-primary/10 text-primary">
+          MCQ
         </span>
         <div className="flex-1" />
         <div className="flex items-center gap-1 shrink-0">
