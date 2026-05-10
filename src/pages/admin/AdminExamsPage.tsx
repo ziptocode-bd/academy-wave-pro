@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
 import { Exam, ExamSubmission } from "@/types/exam";
 import { Course } from "@/types";
 import { toast } from "sonner";
-import { Trash2, Edit, Eye, Plus, Download, Upload, Trophy, CheckCircle, XCircle, Image, Save, ArrowLeft, ZoomIn, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Edit, Eye, Plus, Download, Upload, Trophy, ArrowLeft, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -27,9 +27,6 @@ export default function AdminExamsPage() {
   const [submissions, setSubmissions] = useState<ExamSubmission[]>([]);
   const [activeTab, setActiveTab] = useState("exams");
   const [filterCourse, setFilterCourse] = useState("");
-  const [gradingSubmission, setGradingSubmission] = useState<ExamSubmission | null>(null);
-  const [writtenMarks, setWrittenMarks] = useState<Record<string, number>>({});
-  const [savingGrade, setSavingGrade] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -55,11 +52,9 @@ export default function AdminExamsPage() {
 
   const viewResults = async (exam: Exam) => {
     setResultsExam(exam);
-    setGradingSubmission(null);
     setSubmissions([]);
     setActiveTab("results");
     try {
-      // Avoid composite-index requirement: filter only, sort client-side
       const q = query(
         collection(examDb, "submissions"),
         where("examId", "==", exam.id)
@@ -70,62 +65,8 @@ export default function AdminExamsPage() {
         .sort((a, b) => (b.obtainedMarks || 0) - (a.obtainedMarks || 0));
       setSubmissions(subs);
     } catch (err: any) {
-      console.error("viewResults failed, falling back to full scan:", err);
-      try {
-        // Fallback for legacy submissions missing examId field
-        const snap = await getDocs(collection(examDb, "submissions"));
-        const subs = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as ExamSubmission))
-          .filter(s => s.examId === exam.id || s.id.startsWith(`${exam.id}_`))
-          .sort((a, b) => (b.obtainedMarks || 0) - (a.obtainedMarks || 0));
-        setSubmissions(subs);
-      } catch (e: any) {
-        toast.error("ফলাফল লোড করা যায়নি: " + (e?.message || "Unknown error"));
-      }
+      toast.error("ফলাফল লোড করা যায়নি: " + (err?.message || "Unknown error"));
     }
-  };
-
-  const openGrading = (sub: ExamSubmission) => {
-    setGradingSubmission(sub);
-    const marks: Record<string, number> = {};
-    sub.answers.forEach(a => {
-      if (a.writtenMarksAwarded !== undefined) marks[a.questionId] = a.writtenMarksAwarded;
-    });
-    setWrittenMarks(marks);
-  };
-
-  const saveGrading = async () => {
-    if (!gradingSubmission || !resultsExam) return;
-    setSavingGrade(true);
-    try {
-      const updatedAnswers = gradingSubmission.answers.map(a => {
-        const q = resultsExam.questions.find(q => q.id === a.questionId);
-        if (q?.type === "written" && writtenMarks[a.questionId] !== undefined) {
-          return { ...a, writtenMarksAwarded: writtenMarks[a.questionId] };
-        }
-        return a;
-      });
-
-      const mcqMarks = updatedAnswers.filter(a => a.isCorrect).reduce((s, a) => s + a.marks, 0);
-      const wrongCount = updatedAnswers.filter(a => a.selectedOption !== undefined && !a.isCorrect).length;
-      const negativeTotal = wrongCount * (resultsExam.negativeMark || 0);
-      const writtenTotal = Object.values(writtenMarks).reduce((s, m) => s + m, 0);
-      const obtainedMarks = Math.max(0, mcqMarks - negativeTotal) + writtenTotal;
-      const passed = obtainedMarks >= (resultsExam.passMark || 0);
-
-      await updateDoc(doc(examDb, "submissions", gradingSubmission.id), {
-        answers: updatedAnswers,
-        obtainedMarks,
-        passed,
-        writtenGraded: true,
-        writtenMarks: writtenTotal,
-      });
-
-      toast.success("Grades saved");
-      setGradingSubmission(null);
-      viewResults(resultsExam);
-    } catch (err: any) { toast.error(err.message); }
-    setSavingGrade(false);
   };
 
   const exportExams = (examsToExport: Exam[]) => {
@@ -169,22 +110,20 @@ export default function AdminExamsPage() {
   const downloadRankingPDF = () => {
     if (!resultsExam || submissions.length === 0) return;
     const passMark = resultsExam.passMark || 0;
-    const hasWritten = resultsExam.questions.some(q => q.type === "written");
     let html = `<html><head><meta charset="utf-8"><title>${resultsExam.title} - Rankings</title>
-    <style>body{font-family:'Segoe UI',sans-serif;padding:40px;color:#333}h1{font-size:22px;margin-bottom:4px}h2{font-size:14px;color:#666;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f5f5f5;text-align:left;padding:10px;border-bottom:2px solid #ddd}td{padding:10px;border-bottom:1px solid #eee}.pass{color:#2e7d32;font-weight:600}.fail{color:#c62828;font-weight:600}img{max-height:60px;border-radius:4px}</style></head><body>
+    <style>body{font-family:'Segoe UI',sans-serif;padding:40px;color:#333}h1{font-size:22px;margin-bottom:4px}h2{font-size:14px;color:#666;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f5f5f5;text-align:left;padding:10px;border-bottom:2px solid #ddd}td{padding:10px;border-bottom:1px solid #eee}.pass{color:#2e7d32;font-weight:600}.fail{color:#c62828;font-weight:600}</style></head><body>
     <h1>${resultsExam.title}</h1>
     <h2>${resultsExam.courseName} • Total: ${resultsExam.totalMarks} • Pass: ${passMark}</h2>
-    <table><tr><th>Rank</th><th>Name</th><th>Email</th><th>Marks</th><th>Correct</th><th>Wrong</th>${hasWritten ? '<th>Written</th>' : ''}<th>Status</th></tr>`;
+    <table><tr><th>Rank</th><th>Name</th><th>Email</th><th>Marks</th><th>Correct</th><th>Wrong</th><th>Status</th></tr>`;
     submissions.forEach((sub, idx) => {
       const passed = sub.obtainedMarks >= passMark;
-      html += `<tr><td>${idx+1}</td><td>${sub.userName}</td><td>${sub.userEmail}</td><td>${sub.obtainedMarks}/${sub.totalMarks}</td><td>${sub.correctCount}</td><td>${sub.wrongCount}</td>${hasWritten ? `<td>${sub.writtenMarks ?? 'N/A'}</td>` : ''}<td class="${passed?'pass':'fail'}">${passed?'Pass':'Fail'}</td></tr>`;
+      html += `<tr><td>${idx+1}</td><td>${sub.userName}</td><td>${sub.userEmail}</td><td>${sub.obtainedMarks}/${sub.totalMarks}</td><td>${sub.correctCount}</td><td>${sub.wrongCount}</td><td class="${passed?'pass':'fail'}">${passed?'Pass':'Fail'}</td></tr>`;
     });
     html += `</table></body></html>`;
     const w = window.open('','_blank');
     if (w) { w.document.write(html); w.document.close(); w.onload = () => w.print(); }
   };
 
-  // Download exam questions & answers as organized PDF
   const downloadQuestionsPDF = (exam: Exam) => {
     let html = `<html><head><meta charset="utf-8"><title>${exam.title} - Questions & Answers</title>
     <style>
@@ -207,13 +146,11 @@ export default function AdminExamsPage() {
 
     exam.questions.forEach((q, idx) => {
       html += `<div class="question">`;
-      html += `<div class="q-header">Q${idx + 1}. ${q.questionText} <span class="q-type">${q.type === "mcq" ? "MCQ" : "Written"} • ${q.marks} marks</span></div>`;
-      
+      html += `<div class="q-header">Q${idx + 1}. ${q.questionText} <span class="q-type">MCQ • ${q.marks} marks</span></div>`;
       if (q.questionImage) {
         html += `<img src="${q.questionImage}" alt="Question Image" />`;
       }
-
-      if (q.type === "mcq" && q.options) {
+      if (q.options) {
         q.options.forEach((opt, oIdx) => {
           const isCorrect = oIdx === q.correctAnswer;
           html += `<div class="option ${isCorrect ? 'correct' : 'wrong'}">${String.fromCharCode(65 + oIdx)}) ${opt.text} ${isCorrect ? '✓' : ''}</div>`;
@@ -224,20 +161,6 @@ export default function AdminExamsPage() {
         html += `<div class="answer-label">Correct Answer:</div>`;
         html += `<div class="answer-text">${String.fromCharCode(65 + (q.correctAnswer || 0))}) ${q.options[q.correctAnswer || 0]?.text || ''}</div>`;
       }
-
-      if (q.type === "written") {
-        html += `<div class="answer-label">Model Answer:</div>`;
-        if (q.writtenAnswer) {
-          if (q.writtenAnswer.startsWith("http")) {
-            html += `<img src="${q.writtenAnswer}" alt="Answer" />`;
-          } else {
-            html += `<div class="answer-text">${q.writtenAnswer}</div>`;
-          }
-        } else {
-          html += `<div class="answer-text" style="color:#999">No model answer provided</div>`;
-        }
-      }
-
       html += `</div>`;
     });
 
@@ -251,103 +174,6 @@ export default function AdminExamsPage() {
   const paginatedExams = filteredExams.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   useEffect(() => { setCurrentPage(1); }, [filterCourse]);
-
-  const getExamTypeLabel = (exam: Exam) => {
-    const hasMcq = exam.questions?.some(q => q.type === "mcq");
-    const hasWritten = exam.questions?.some(q => q.type === "written");
-    if (hasMcq && hasWritten) return "MCQ + Written";
-    if (hasWritten) return "Written";
-    return "MCQ";
-  };
-
-  // Grading view
-  if (gradingSubmission && resultsExam) {
-    return (
-      <div className="p-4 max-w-2xl mx-auto animate-fade-in">
-        <button onClick={() => setGradingSubmission(null)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
-          <ArrowLeft className="h-4 w-4" /> Back to Results
-        </button>
-        <h2 className="text-lg font-semibold text-foreground mb-1">Grade Written Answers</h2>
-        <p className="text-sm text-muted-foreground mb-4">{gradingSubmission.userName} • {gradingSubmission.userEmail}</p>
-
-        <div className="space-y-4">
-          {resultsExam.questions.map((q, idx) => {
-            const ans = gradingSubmission.answers.find(a => a.questionId === q.id);
-            return (
-              <div key={q.id} className="bg-card border border-border rounded-xl p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">{idx + 1}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${q.type === "mcq" ? "bg-primary/10 text-primary" : "bg-accent text-muted-foreground border border-border"}`}>
-                    {q.type === "mcq" ? "MCQ" : "Written"} • {q.marks} marks
-                  </span>
-                </div>
-                <p className="text-sm text-foreground mb-2">{q.questionText}</p>
-                {q.questionImage && (
-                  <img src={q.questionImage} alt="" className="h-24 rounded-lg object-contain mb-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setPreviewImage(q.questionImage!)} />
-                )}
-
-                {q.type === "mcq" && q.options && (
-                  <div className="space-y-1">
-                    {q.options.map((opt, oIdx) => {
-                      const isCorrect = oIdx === q.correctAnswer;
-                      const isSelected = ans?.selectedOption === oIdx;
-                      let bg = "bg-card";
-                      if (isCorrect) bg = "bg-green-500/10";
-                      if (isSelected && !isCorrect) bg = "bg-red-500/10";
-                      return (
-                        <div key={oIdx} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs ${bg}`}>
-                          {isCorrect && <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400 shrink-0" />}
-                          {isSelected && !isCorrect && <XCircle className="h-3 w-3 text-destructive shrink-0" />}
-                          {!isCorrect && !isSelected && <span className="w-3" />}
-                          <span className="text-foreground">{opt.text}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {q.type === "written" && (
-                  <div className="mt-2">
-                    {ans?.writtenImageUrl ? (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Student's Answer:</p>
-                        <div className="relative inline-block group cursor-pointer" onClick={() => setPreviewImage(ans.writtenImageUrl!)}>
-                          <img src={ans.writtenImageUrl} alt="Written answer" className="max-h-64 rounded-lg object-contain border border-border" />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <ZoomIn className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-3">
-                          <label className="text-xs font-medium text-muted-foreground">Marks:</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={q.marks}
-                            value={writtenMarks[q.id] ?? ""}
-                            onChange={e => setWrittenMarks(prev => ({ ...prev, [q.id]: Number(e.target.value) }))}
-                            className="w-20 px-2 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          />
-                          <span className="text-xs text-muted-foreground">/ {q.marks}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic">No answer submitted</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <button onClick={saveGrading} disabled={savingGrade} className="w-full mt-4 py-3 bg-primary text-primary-foreground rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-          <Save className="h-4 w-4" /> {savingGrade ? "Saving..." : "Save Grades"}
-        </button>
-
-        <ImagePreviewDialog src={previewImage} onClose={() => setPreviewImage(null)} />
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 max-w-4xl mx-auto animate-fade-in">
@@ -389,17 +215,9 @@ export default function AdminExamsPage() {
               {paginatedExams.map(exam => {
                 const startTime = formatTime12(exam.startTime?.toDate?.());
                 const endTime = formatTime12(exam.endTime?.toDate?.());
-                const typeLabel = getExamTypeLabel(exam);
-                const typeColor =
-                  typeLabel === "MCQ + Written"
-                    ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
-                    : typeLabel === "Written"
-                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                    : "bg-blue-500/10 text-blue-600 dark:text-blue-400";
 
                 return (
                   <div key={exam.id} className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-                    {/* Card Header */}
                     <div className="px-4 pt-4 pb-3">
                       <div className="flex flex-wrap items-start gap-2 mb-1.5">
                         <h3 className="font-semibold text-foreground text-sm leading-snug flex-1 min-w-0">
@@ -416,13 +234,11 @@ export default function AdminExamsPage() {
                         </span>
                       </div>
 
-                      {/* Course name */}
                       <p className="text-xs text-muted-foreground mb-3 truncate">{exam.courseName}</p>
 
-                      {/* Info Chips */}
                       <div className="flex flex-wrap gap-1.5">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${typeColor}`}>
-                          {typeLabel}
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                          MCQ
                         </span>
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-accent text-foreground">
                           {exam.questions?.length || 0} প্রশ্ন
@@ -443,7 +259,6 @@ export default function AdminExamsPage() {
                         )}
                       </div>
 
-                      {/* Time Range */}
                       {(startTime || endTime) && (
                         <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                           <span className="shrink-0">🕐</span>
@@ -455,9 +270,7 @@ export default function AdminExamsPage() {
                       )}
                     </div>
 
-                    {/* Action Bar */}
                     <div className="flex items-center justify-between gap-1 px-3 py-2 border-t border-border bg-accent/30">
-                      {/* Left: Publish toggle */}
                       <button
                         onClick={async () => {
                           await updateDoc(doc(examDb, "exams", exam.id), { resultPublished: !exam.resultPublished });
@@ -475,34 +288,17 @@ export default function AdminExamsPage() {
                         <span className="hidden sm:inline">{exam.resultPublished ? "Unpublish" : "Publish"}</span>
                       </button>
 
-                      {/* Right: Action icons */}
                       <div className="flex items-center gap-0.5">
-                        <button
-                          onClick={() => downloadQuestionsPDF(exam)}
-                          title="Download Q&A PDF"
-                          className="p-2 hover:bg-accent rounded-lg transition-colors"
-                        >
+                        <button onClick={() => downloadQuestionsPDF(exam)} title="Download Q&A PDF" className="p-2 hover:bg-accent rounded-lg transition-colors">
                           <FileText className="h-4 w-4 text-muted-foreground" />
                         </button>
-                        <button
-                          onClick={() => exportExams([exam])}
-                          title="Export"
-                          className="p-2 hover:bg-accent rounded-lg transition-colors"
-                        >
+                        <button onClick={() => exportExams([exam])} title="Export" className="p-2 hover:bg-accent rounded-lg transition-colors">
                           <Download className="h-4 w-4 text-muted-foreground" />
                         </button>
-                        <button
-                          onClick={() => viewResults(exam)}
-                          title="View Results"
-                          className="p-2 hover:bg-accent rounded-lg transition-colors"
-                        >
+                        <button onClick={() => viewResults(exam)} title="View Results" className="p-2 hover:bg-accent rounded-lg transition-colors">
                           <Eye className="h-4 w-4 text-muted-foreground" />
                         </button>
-                        <button
-                          onClick={() => navigate(`/admin/exams/add?edit=${exam.id}`)}
-                          title="Edit"
-                          className="p-2 hover:bg-accent rounded-lg transition-colors"
-                        >
+                        <button onClick={() => navigate(`/admin/exams/add?edit=${exam.id}`)} title="Edit" className="p-2 hover:bg-accent rounded-lg transition-colors">
                           <Edit className="h-4 w-4 text-muted-foreground" />
                         </button>
                         <AlertDialog>
@@ -563,7 +359,6 @@ export default function AdminExamsPage() {
                 <div className="space-y-2">
                   {submissions.map((sub, idx) => {
                     const passed = sub.obtainedMarks >= (resultsExam.passMark || 0);
-                    const hasWrittenQ = resultsExam.questions.some(q => q.type === "written");
                     return (
                       <div key={sub.id} className="bg-card border border-border rounded-xl p-3">
                         <div className="flex items-center justify-between">
@@ -584,16 +379,6 @@ export default function AdminExamsPage() {
                             </div>
                           </div>
                         </div>
-                        {hasWrittenQ && (
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                            <span className="text-xs text-muted-foreground">
-                              Written: {sub.writtenGraded ? `${sub.writtenMarks} marks` : "Not graded"}
-                            </span>
-                            <button onClick={() => openGrading(sub)} className="flex items-center gap-1 px-3 py-1 bg-accent border border-border rounded-lg text-xs font-medium text-foreground hover:bg-accent/80">
-                              <Image className="h-3 w-3" /> {sub.writtenGraded ? "Edit Grade" : "Grade"}
-                            </button>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -618,6 +403,8 @@ export default function AdminExamsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <ImagePreviewDialog src={previewImage} onClose={() => setPreviewImage(null)} />
     </div>
   );
 }
