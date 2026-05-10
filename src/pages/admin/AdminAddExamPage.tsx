@@ -458,46 +458,6 @@ function QuestionEditor({ question, index, onUpdate, onRemove, onUpdateOption, o
               <button onClick={onAddOption} className="text-xs text-primary hover:underline ml-5">+ Add Option</button>
             </div>
           )}
-
-          {!isMcq && (
-            <div className="space-y-2 mt-1">
-              <ImageUrlField value={question.questionImage || ""} onChange={(v) => onUpdate({ questionImage: v })} placeholder="Question image URL (optional)" />
-              {question.questionImage && <img src={question.questionImage} alt="" className="h-20 rounded-lg object-contain" />}
-              {/* Answer Image — always visible, with gap */}
-              <div className="pt-2 border-t border-border/50" />
-              {/* Answer Image */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                  <span className="text-[11px] font-medium text-muted-foreground">Answer Image</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <input
-                    value={question.writtenAnswer || ""}
-                    onChange={e => onUpdate({ writtenAnswer: e.target.value })}
-                    placeholder="সঠিক উত্তরের ইমেজ URL দিন"
-                    className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-background border border-green-400/40 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500/60 transition-all placeholder:text-muted-foreground/50"
-                  />
-                  {question.writtenAnswer && (
-                    <button type="button" onClick={() => onUpdate({ writtenAnswer: "" })} className="p-1.5 hover:bg-destructive/10 text-destructive/50 hover:text-destructive rounded-lg transition-colors shrink-0">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-                <a href="https://postimages.org" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/50 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" /> Get URL
-                </a>
-                {question.writtenAnswer?.startsWith("http") && (
-                  <div className="relative mt-0.5">
-                    <img src={question.writtenAnswer} alt="Answer preview" className="h-20 rounded-lg object-contain border border-green-300/50 dark:border-green-800/40" />
-                    <span className="absolute top-1 left-1 text-[9px] font-bold bg-green-500 text-white px-1.5 py-0.5 rounded-full">Answer</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
