@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { X, Home, User, Share2, Download, Sun, Moon, ExternalLink, ClipboardList, Lock, Globe, Heart, FolderOpen, Calendar, MessageCircle, FileText } from "lucide-react";
+import { X, GraduationCap, User, Share2, Download, Sun, Moon, ExternalLink, Timer, Lock, Globe, Heart, FolderOpen, Calendar, MessageCircle } from "lucide-react";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/use-theme";
@@ -89,9 +89,9 @@ export function UserSidebar({ open, onClose }: Props) {
 
           {/* Main Menu — Exams সবসময় দেখাবে */}
           <p className="px-3 py-1.5 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Menu</p>
-          <SidebarLink to="/home"      icon={Home}          label="Home"      onClick={onClose} active={isActive("/home") || isActive("/")} />
-          <SidebarLink to="/content" icon={FileText}    label="Content" onClick={onClose} active={isActive("/content")} />
-          <SidebarLink to="/exams"     icon={ClipboardList} label="Exams"     onClick={onClose} active={isActive("/exams")} />
+          <SidebarLink to="/home"      icon={GraduationCap} label="Courses"   onClick={onClose} active={isActive("/home") || isActive("/")} />
+          <SidebarLink to="/content"   icon={FolderOpen}    label="Content"   onClick={onClose} active={isActive("/content")} />
+          <SidebarLink to="/exams"     icon={Timer}         label="Exams"     onClick={onClose} active={isActive("/exams")} />
           <SidebarLink to="/profile"   icon={User}          label="Profile"   onClick={onClose} active={isActive("/profile")} />
 
           {/* Course Resources */}

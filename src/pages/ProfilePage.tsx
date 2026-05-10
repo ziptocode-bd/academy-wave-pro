@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { doc, updateDoc, getDoc, addDoc, collection, getDocs, arrayUnion, Timestamp, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { LogOut, KeyRound, FileText, MessageCircle, ExternalLink, PlusCircle, Copy, Check, ClipboardList, Lock, Clock, Calendar, FolderOpen, XCircle } from "lucide-react";
+import { LogOut, KeyRound, FolderOpen as FileText, MessageCircle, ExternalLink, PlusCircle, Copy, Check, Timer, Lock, Clock, Calendar, FolderOpen, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -372,7 +372,7 @@ export default function ProfilePage() {
           ))}
 
           <Link to="/exams" className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl text-sm font-medium text-foreground hover:bg-primary/10 transition-colors">
-            <ClipboardList className="h-5 w-5 text-primary" />
+            <Timer className="h-5 w-5 text-primary" />
             <span className="flex-1">Exams</span>
           </Link>
         </div>

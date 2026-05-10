@@ -96,13 +96,31 @@ export default function AuthPage() {
     setSubmitting(false);
   };
 
+  const validateTransactionId = (method: string, tnxId: string): string | null => {
+    const id = tnxId.trim().toUpperCase();
+    const m = method.toLowerCase();
+    if (m.includes("bkash")) {
+      if (!/^[A-Z0-9]{10}$/.test(id)) return "bKash transaction ID must be exactly 10 uppercase letters/digits (from payment SMS)";
+    } else if (m.includes("nagad")) {
+      if (!/^[A-Z0-9]{8,12}$/.test(id)) return "Nagad transaction ID must be 8–12 uppercase letters/digits (from payment SMS)";
+    } else if (m.includes("rocket")) {
+      if (!/^[A-Z0-9]{8,12}$/.test(id)) return "Rocket transaction ID must be 8–12 uppercase letters/digits";
+    } else {
+      if (id.length < 6) return "Transaction ID is too short";
+    }
+    return null;
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourseId || !course) { toast.error("Please select a course first"); return; }
-    if (!transactionId.trim()) { toast.error("Transaction ID is required"); return; }
+    if (!paymentMethod) { toast.error("Please select a payment method"); return; }
+    const tnxId = transactionId.trim().toUpperCase();
+    if (!tnxId) { toast.error("Transaction ID is required"); return; }
+    const err = validateTransactionId(paymentMethod, tnxId);
+    if (err) { toast.error(err); return; }
     setSubmitting(true);
     try {
-      const tnxId = transactionId.trim();
       const userId = await register(email, password, name);
       await addDoc(collection(db, "enrollRequests"), {
         userId, name, email, courseId: selectedCourseId, courseName: course.courseName,
@@ -218,8 +236,24 @@ export default function AuthPage() {
           )}
 
           <input type="text" placeholder="Payment Number" value={paymentNumber} onChange={(e) => setPaymentNumber(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-          <input type="text" required placeholder="Transaction ID (from payment SMS)" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm" />
-          <p className="text-[11px] text-muted-foreground -mt-2">পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন। এডমিন এই আইডি দিয়েই ভেরিফাই করবে।</p>
+          <input
+            type="text"
+            required
+            placeholder={
+              paymentMethod.toLowerCase().includes("bkash") ? "bKash Transaction ID (e.g. 9A7B3C2D1E)" :
+              paymentMethod.toLowerCase().includes("nagad") ? "Nagad Transaction ID (e.g. 75T2K6L9)" :
+              "Transaction ID (from payment SMS)"
+            }
+            value={transactionId}
+            onChange={(e) => setTransactionId(e.target.value.toUpperCase().replace(/\s+/g, ""))}
+            maxLength={16}
+            className="w-full px-4 py-3 rounded-md bg-card border border-border text-foreground text-sm tracking-wider"
+          />
+          <p className="text-[11px] text-muted-foreground -mt-2">
+            {paymentMethod.toLowerCase().includes("bkash") && "bKash TrxID = 10 digits/letters (uppercase)। "}
+            {paymentMethod.toLowerCase().includes("nagad") && "Nagad TrxID = 8–12 digits/letters (uppercase)। "}
+            পেমেন্ট SMS এ আসা Transaction ID হুবহু কপি করে দিন।
+          </p>
 
           <button type="submit" disabled={submitting} className="w-full py-3 rounded-md bg-primary text-primary-foreground font-medium text-sm disabled:opacity-50">{submitting ? "Registering..." : "Register & Enroll"}</button>
         </form>

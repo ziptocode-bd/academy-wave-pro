@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Course } from "@/types";
 import { getCachedDoc } from "@/lib/firestoreCache";
-import { FileText, Users, Clock, BookOpen, MessageSquare, ExternalLink, Lock, ClipboardList, Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { FolderOpen, Users, Clock, BookOpen, MessageSquare, ExternalLink, Lock, Timer, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { CourseDetailsSkeleton } from "@/components/skeletons/CourseDetailsSkeleton";
 import { FloatingButtons } from "@/components/FloatingButtons";
 
@@ -180,7 +180,7 @@ export default function CourseDetailsPage() {
               {course.allMaterialsLink && (
                 <a href={course.allMaterialsLink} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl text-sm font-medium text-foreground hover:bg-primary/10 transition-colors">
-                  <FileText className="h-5 w-5 text-primary" />
+                  <FolderOpen className="h-5 w-5 text-primary" />
                   <span className="flex-1">All Materials</span>
                   <ExternalLink className="h-4 w-4 text-primary" />
                 </a>
@@ -201,7 +201,7 @@ export default function CourseDetailsPage() {
 
               <Link to="/exams"
                 className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl text-sm font-medium text-foreground hover:bg-primary/10 transition-colors">
-                <ClipboardList className="h-5 w-5 text-primary" />
+                <Timer className="h-5 w-5 text-primary" />
                 <span className="flex-1">Exams</span>
               </Link>
             </div>

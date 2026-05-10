@@ -80,14 +80,7 @@ export default function AdminAddExamPage() {
     }]);
   };
 
-  const addWrittenQuestion = () => {
-    setQuestions([...questions, {
-      id: Date.now().toString(),
-      questionText: "",
-      type: "written",
-      marks: 1,
-    }]);
-  };
+  // Written exam type removed — only MCQ supported.
 
   const updateQuestion = (idx: number, updates: Partial<ExamQuestion>) => {
     const updated = [...questions];
@@ -182,33 +175,20 @@ export default function AdminAddExamPage() {
         } else {
           parsed = [];
         }
-        const newQuestions: ExamQuestion[] = parsed.map((item, idx) => {
-          const qType = (item.type || "mcq").toLowerCase();
-          if (qType === "written") {
-            return {
-              id: (Date.now() + idx).toString(),
-              questionText: item.question || item.questionText || "",
-              questionImage: item.questionImage || "",
-              type: "written" as const,
-              writtenAnswer: item.answerImage || item.writtenAnswer || "",
-              marks: parseInt(item.marks || "1"),
-            };
-          }
-          return {
-            id: (Date.now() + idx).toString(),
-            questionText: item.question || item.questionText || "",
-            questionImage: item.questionImage || "",
-            type: "mcq" as const,
-            options: [
-              { text: item.option1 || item.a || "", image: item.option1Image || "" },
-              { text: item.option2 || item.b || "", image: item.option2Image || "" },
-              { text: item.option3 || item.c || "", image: item.option3Image || "" },
-              { text: item.option4 || item.d || "", image: item.option4Image || "" },
-            ].filter(o => o.text),
-            correctAnswer: parseInt(item.correct || item.correctAnswer || "0"),
-            marks: parseInt(item.marks || "1"),
-          };
-        });
+        const newQuestions: ExamQuestion[] = parsed.map((item, idx) => ({
+          id: (Date.now() + idx).toString(),
+          questionText: item.question || item.questionText || "",
+          questionImage: item.questionImage || "",
+          type: "mcq" as const,
+          options: [
+            { text: item.option1 || item.a || "", image: item.option1Image || "" },
+            { text: item.option2 || item.b || "", image: item.option2Image || "" },
+            { text: item.option3 || item.c || "", image: item.option3Image || "" },
+            { text: item.option4 || item.d || "", image: item.option4Image || "" },
+          ].filter(o => o.text),
+          correctAnswer: parseInt(item.correct || item.correctAnswer || "0"),
+          marks: parseInt(item.marks || "1"),
+        }));
         setQuestions(prev => [...prev, ...newQuestions]);
         toast.success(`${newQuestions.length} questions imported`);
       } catch {
@@ -376,10 +356,7 @@ export default function AdminAddExamPage() {
 
           <div className="flex gap-2">
             <button onClick={addMCQQuestion} className="flex-1 flex items-center gap-1.5 px-4 py-2.5 bg-accent border border-dashed border-border rounded-xl text-sm font-medium text-foreground justify-center hover:bg-accent/80 transition-colors">
-              <Plus className="h-4 w-4" /> MCQ Question
-            </button>
-            <button onClick={addWrittenQuestion} className="flex-1 flex items-center gap-1.5 px-4 py-2.5 bg-accent border border-dashed border-border rounded-xl text-sm font-medium text-foreground justify-center hover:bg-accent/80 transition-colors">
-              <Plus className="h-4 w-4" /> Written Question
+              <Plus className="h-4 w-4" /> Add MCQ Question
             </button>
           </div>
         </FormSection>
@@ -387,9 +364,7 @@ export default function AdminAddExamPage() {
         {/* Summary */}
         <div className="bg-accent/30 border border-border rounded-xl p-3">
           <p className="text-xs text-muted-foreground">
-            Total: <span className="text-foreground font-medium">{questions.length} Q</span> •
-            MCQ: <span className="text-foreground font-medium">{questions.filter(q => q.type === "mcq").length}</span> •
-            Written: <span className="text-foreground font-medium">{questions.filter(q => q.type === "written").length}</span> •
+            Total: <span className="text-foreground font-medium">{questions.length} MCQ</span> •
             Marks: <span className="text-foreground font-medium">{questions.reduce((s, q) => s + q.marks, 0)}</span> •
             Pass: <span className="text-foreground font-medium">{passMark}</span>
           </p>

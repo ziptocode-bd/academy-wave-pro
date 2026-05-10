@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Exam } from "@/types/exam";
 import { getCachedCollection } from "@/lib/firestoreCache";
 import { Link, useNavigate } from "react-router-dom";
-import { Clock, CheckCircle, AlertCircle, BookOpen } from "lucide-react";
+import { Clock, CheckCircle, AlertCircle, Timer } from "lucide-react";
 import { FloatingButtons } from "@/components/FloatingButtons";
 
 export default function ExamListPage() {
@@ -62,7 +62,7 @@ export default function ExamListPage() {
   return (
     <div className="p-4 max-w-2xl mx-auto animate-fade-in">
       <h1 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-        <BookOpen className="h-5 w-5" /> Exams
+        <Timer className="h-5 w-5" /> Exams
       </h1>
 
       {examsLoading ? (

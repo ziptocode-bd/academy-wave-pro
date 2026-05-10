@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  X, LayoutDashboard, Users, BookOpen, Video,
-  Settings, LogOut, Download, ClipboardList,
+  X, LayoutDashboard, Users, GraduationCap, Video,
+  Settings, LogOut, Download, Timer,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -19,9 +19,9 @@ interface Props {
 const NAV_ITEMS = [
   { to: "/admin",          icon: LayoutDashboard, label: "Dashboard" },
   { to: "/admin/users",    icon: Users,           label: "Users" },
-  { to: "/admin/courses",  icon: BookOpen,        label: "Courses" },
+  { to: "/admin/courses",  icon: GraduationCap,   label: "Courses" },
   { to: "/admin/videos",   icon: Video,           label: "Videos" },
-  { to: "/admin/exams",    icon: ClipboardList,   label: "Exams" },
+  { to: "/admin/exams",    icon: Timer,           label: "Exams" },
   { to: "/admin/settings", icon: Settings,        label: "Settings" },
   { to: "/admin/data",     icon: Download,        label: "Backup" },
 ];
