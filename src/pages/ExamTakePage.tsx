@@ -962,7 +962,7 @@ export default function ExamTakePage() {
             <AlertDialogTitle>পরীক্ষা সাবমিট করুন</AlertDialogTitle>
             <AlertDialogDescription>
               আপনি কি সাবমিট করতে চান? আপনি{" "}
-              {Object.values(answers).filter((a) => a.selectedOption !== undefined || a.writtenImageUrl).length}/
+              {Object.values(answers).filter((a) => a.selectedOption !== undefined).length}/
               {exam.questions.length} টি প্রশ্নের উত্তর দিয়েছেন।
             </AlertDialogDescription>
           </AlertDialogHeader>
