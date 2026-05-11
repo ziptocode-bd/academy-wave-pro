@@ -76,7 +76,6 @@ export default function AdminExamsPage() {
   // এখন শুধু ওই exam-এর submissions query করে + cache রাখে।
   const viewResults = async (exam: Exam, forceRefresh = false) => {
     setResultsExam(exam);
-    setGradingSubmission(null);
     setActiveTab("results");
 
     // Cache hit — Firebase read লাগবে না
