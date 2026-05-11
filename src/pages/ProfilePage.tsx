@@ -195,7 +195,7 @@ export default function ProfilePage() {
       }
 
       await refreshUserDoc();
-      await refreshStatuses();
+      await refreshStatuses(true);
 
       toast.success("পুনরায় এনরোল রিকোয়েস্ট পাঠানো হয়েছে!");
       setReEnrollCourse(null);
@@ -248,7 +248,7 @@ export default function ProfilePage() {
         }),
       });
       await refreshUserDoc();
-      await refreshStatuses();
+      await refreshStatuses(true);
       toast.success("Enrollment request submitted!");
       setEnrollOpen(false);
       setSelectedCourse(null);
