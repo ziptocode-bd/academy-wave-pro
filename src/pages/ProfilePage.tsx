@@ -1,8 +1,9 @@
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
-import { doc, updateDoc, getDoc, addDoc, collection, getDocs, arrayUnion, Timestamp, query, where } from "firebase/firestore";
+import { doc, updateDoc, getDocs, addDoc, collection, arrayUnion, Timestamp, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getCachedDoc, getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { LogOut, KeyRound, MessageCircle, ExternalLink, PlusCircle, Copy, Check, Timer, Clock, Calendar, FolderOpen, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,19 +48,19 @@ export default function ProfilePage() {
   // ── auth guard ────────────────────────────────────────────────────────────
   useEffect(() => { if (!user) navigate("/auth?mode=login"); }, [user]);
 
-  // ── active course fetch ───────────────────────────────────────────────────
+  // ── active course fetch (cached) ──────────────────────────────────────────
   useEffect(() => {
     if (!userDoc?.activeCourseId) { setActiveCourse(null); return; }
-    getDoc(doc(db, "courses", userDoc.activeCourseId)).then((snap) => {
-      setActiveCourse(snap.exists() ? ({ id: snap.id, ...snap.data() } as Course) : null);
+    getCachedDoc<Course>(db, "courses", userDoc.activeCourseId).then((c) => {
+      setActiveCourse(c);
     });
   }, [userDoc?.activeCourseId]);
 
-  // ── load available courses when enroll dialog opens ───────────────────────
+  // ── load available courses when enroll dialog opens (cached) ──────────────
   useEffect(() => {
     if (enrollOpen) {
-      getDocs(collection(db, "courses")).then((snap) => {
-        setAllCourses(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Course)));
+      getCachedCollection<Course>(db, "courses").then((list) => {
+        setAllCourses(list);
       });
     }
   }, [enrollOpen]);
@@ -67,16 +68,17 @@ export default function ProfilePage() {
   // ── fetch enroll request statuses ─────────────────────────────────────────
   // Re-runs whenever enrolledCourses count changes (new enroll) OR on mount.
   const enrolledCoursesLength = userDoc?.enrolledCourses?.length ?? 0;
-  const refreshStatuses = async () => {
+  const refreshStatuses = async (force = false) => {
     if (!user) return;
-    const snap = await getDocs(
-      query(collection(db, "enrollRequests"), where("userId", "==", user.uid))
+    if (force) invalidateCache("enrollRequests");
+    const reqs = await getCachedCollection<{ courseId: string; status: string; id: string }>(
+      db,
+      "enrollRequests",
+      [where("userId", "==", user.uid)],
+      `user_${user.uid}`
     );
     const statuses: Record<string, string> = {};
-    snap.docs.forEach((d) => {
-      const data = d.data() as { courseId: string; status: string };
-      statuses[data.courseId] = data.status;
-    });
+    reqs.forEach((r) => { statuses[r.courseId] = r.status; });
     setCourseRequestStatuses(statuses);
     setStatusesReady(true);
   };
