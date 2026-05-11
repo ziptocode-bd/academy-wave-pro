@@ -1,14 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, setDoc, Timestamp, increment } from "firebase/firestore";
+import {
+  doc, getDoc, addDoc, collection, getDocs, query, where,
+  setDoc, Timestamp, runTransaction,
+} from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam, ExamAnswer, ExamSubmission } from "@/types/exam";
+import { uploadToImgBB } from "@/lib/imgbb";
 import { toast } from "sonner";
 import {
-  Clock, ChevronLeft, ChevronRight, Send, Trophy, CheckCircle, XCircle,
-  ArrowLeft, Award, TrendingDown, Shield, AlertTriangle, Monitor, Maximize,
-  BookOpen, Users, Timer, Star, MinusCircle,
+  Camera, Clock, ChevronLeft, ChevronRight, Send, Trophy, CheckCircle, XCircle,
+  ArrowLeft, Award, TrendingDown, Shield, AlertTriangle, Monitor, Maximize, ZoomIn,
+  BookOpen, FileText, Users, Timer, Star, MinusCircle,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -17,10 +21,59 @@ import {
 import { useExamSecurity, getDeviceInfo } from "@/hooks/useExamSecurity";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 
+// ─── localStorage cache helpers ──────────────────────────────────────────────
+// Exam questions cache (2 hour TTL) — Firebase read বাঁচায়
+const EXAM_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
+
+function getCachedExam(examId: string): Exam | null {
+  try {
+    const raw = localStorage.getItem(`exam_cache_${examId}`);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > EXAM_CACHE_TTL) {
+      localStorage.removeItem(`exam_cache_${examId}`);
+      return null;
+    }
+    // Firestore Timestamp fields (startTime/endTime) plain object হিসেবে stored থাকে,
+    // তাই toMillis() wrapper দিয়ে restore করি।
+    if (data.startTime && typeof data.startTime === "object" && "_seconds" in data.startTime) {
+      data.startTime = { toMillis: () => data.startTime._seconds * 1000, toDate: () => new Date(data.startTime._seconds * 1000) };
+    }
+    if (data.endTime && typeof data.endTime === "object" && "_seconds" in data.endTime) {
+      data.endTime = { toMillis: () => data.endTime._seconds * 1000, toDate: () => new Date(data.endTime._seconds * 1000) };
+    }
+    return data as Exam;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedExam(examId: string, exam: Exam) {
+  try {
+    // Timestamp objects JSON-safe বানাই
+    const serializable = {
+      ...exam,
+      startTime: exam.startTime ? { _seconds: exam.startTime.toMillis() / 1000 } : null,
+      endTime: exam.endTime ? { _seconds: exam.endTime.toMillis() / 1000 } : null,
+    };
+    localStorage.setItem(
+      `exam_cache_${examId}`,
+      JSON.stringify({ data: serializable, ts: Date.now() })
+    );
+  } catch {
+    // localStorage full হলে ignore
+  }
+}
+
+// ─── Submission cache (session-only, per user+exam) ──────────────────────────
+// Page reload করলে Firestore থেকে আবার চেক করবে, কিন্তু same session-এ করবে না।
+const submissionSessionCache = new Map<string, ExamSubmission | null>();
+
 export default function ExamTakePage() {
   const { examId } = useParams<{ examId: string }>();
   const { user, userDoc } = useAuth();
   const navigate = useNavigate();
+
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState<Record<string, ExamAnswer>>({});
@@ -35,10 +88,19 @@ export default function ExamTakePage() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [totalParticipants, setTotalParticipants] = useState(0);
+  const [rankLoading, setRankLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [isUploadingWrittenState, setIsUploadingWrittenState] = useState(false);
   const [rulesAccepted, setRulesAccepted] = useState(false);
+  const [examEntered, setExamEntered] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const cameraRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const submittedRef = useRef(false);
+
+  const isWrittenOnlyExam = exam ? exam.questions.every((q) => q.type === "written") : false;
+  const hasMcqQuestions = exam ? exam.questions.some((q) => q.type === "mcq") : false;
 
   const handleSuspiciousAutoSubmit = useCallback(() => {
     if (submittedRef.current) return;
@@ -47,42 +109,85 @@ export default function ExamTakePage() {
   }, []);
 
   const handleFullscreenExitConfirm = useCallback(() => {
-    if (submittedRef.current) return;
+    if (submittedRef.current || isUploadingWrittenState) return;
     setShowExitConfirm(true);
-  }, []);
+  }, [isUploadingWrittenState]);
 
   const { requestFullscreen, exitFullscreen, isFullscreen } = useExamSecurity({
-    enabled: started && !submitted,
+    enabled: started && !submitted && hasMcqQuestions,
     onSuspiciousActivity: handleSuspiciousAutoSubmit,
     onFullscreenExit: handleFullscreenExitConfirm,
     maxTabSwitches: 2,
+    isUploadingWritten: isUploadingWrittenState,
+    isWrittenExam: isWrittenOnlyExam,
   });
 
+  // ─── Load exam (cache-first) + check existing submission ─────────────────
   useEffect(() => {
-    const fetchExam = async () => {
-      if (!examId) return;
-      const snap = await getDoc(doc(examDb, "exams", examId));
-      if (snap.exists()) setExam({ id: snap.id, ...snap.data() } as Exam);
+    if (!examId) return;
+
+    const load = async () => {
+      // 1) examEntry check (1 read, keyed document)
       if (user) {
-        const submissionId = `${examId}_${user.uid}`;
-        const subSnap = await getDoc(doc(examDb, "submissions", submissionId));
-        if (subSnap.exists()) {
-          const sub = { id: subSnap.id, ...subSnap.data() } as ExamSubmission;
-          setExistingSubmission(sub);
-          setResult(sub);
-          setSubmitted(true);
-          submittedRef.current = true;
+        const entryRef = doc(examDb, "examEntries", `${examId}_${user.uid}`);
+        const entrySnap = await getDoc(entryRef);
+        if (entrySnap.exists()) setExamEntered(true);
+      }
+
+      // 2) Exam data — try localStorage cache first (0 reads on hit)
+      let examData = getCachedExam(examId);
+      if (!examData) {
+        const snap = await getDoc(doc(examDb, "exams", examId));
+        if (snap.exists()) {
+          examData = { id: snap.id, ...snap.data() } as Exam;
+          setCachedExam(examId, examData);           // store to cache
         }
       }
+      if (examData) setExam(examData);
+
+      // 3) Existing submission — session cache first, then query
+      if (user) {
+        const cacheKey = `${examId}_${user.uid}`;
+        if (submissionSessionCache.has(cacheKey)) {
+          const cached = submissionSessionCache.get(cacheKey);
+          if (cached) {
+            setExistingSubmission(cached);
+            setResult(cached);
+            setSubmitted(true);
+            submittedRef.current = true;
+          }
+        } else {
+          // ✅ query দিয়ে শুধু এই user-এর submission — full scan নয়
+          const q = query(
+            collection(examDb, "submissions"),
+            where("examId", "==", examId),
+            where("userId", "==", user.uid)
+          );
+          const subSnap = await getDocs(q);
+          if (!subSnap.empty) {
+            const sub = { id: subSnap.docs[0].id, ...subSnap.docs[0].data() } as ExamSubmission;
+            submissionSessionCache.set(cacheKey, sub);
+            setExistingSubmission(sub);
+            setResult(sub);
+            setSubmitted(true);
+            submittedRef.current = true;
+          } else {
+            submissionSessionCache.set(cacheKey, null); // mark as "no submission"
+          }
+        }
+      }
+
       setLoading(false);
     };
-    fetchExam();
+
+    load();
   }, [examId, user]);
 
+  // ─── Timer ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!started || submitted || timeLeft <= 0) return;
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
           handleSubmitInternal();
@@ -100,19 +205,27 @@ export default function ExamTakePage() {
     };
   }, []);
 
+  // ─── Ranking: user-initiated, cached in state (one-time read) ────────────
+  // User বাটনে click করলে একবার fetch হয়, তারপর myRank set হওয়ায় button হারিয়ে যায়।
+  // Session-এ duplicate read নেই।
   const loadMyRanking = async () => {
-    if (!exam || !user || !result) return;
+    if (!exam || !user || rankLoading) return;
+    setRankLoading(true);
     try {
-      const counterSnap = await getDoc(doc(examDb, "examCounters", exam.id));
-      const total = counterSnap.exists() ? (counterSnap.data() as any).totalParticipants || 0 : 0;
-      setTotalParticipants(total);
-    } catch {
-      setTotalParticipants(0);
-    }
-    if ((result as any).rank) {
-      setMyRank((result as any).rank);
-    } else {
-      setMyRank(null);
+      // ✅ examId দিয়ে filter — full collection scan নয়
+      const q = query(
+        collection(examDb, "submissions"),
+        where("examId", "==", exam.id)
+      );
+      const snap = await getDocs(q);
+      const subs = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as ExamSubmission))
+        .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
+      setTotalParticipants(subs.length);
+      const rank = subs.findIndex((s) => s.userId === user.uid);
+      setMyRank(rank >= 0 ? rank + 1 : null);
+    } finally {
+      setRankLoading(false);
     }
   };
 
@@ -126,25 +239,57 @@ export default function ExamTakePage() {
   const examStarted = exam ? (exam.startTime?.toMillis?.() || 0) <= now : false;
   const examEnded = exam ? (exam.endTime?.toMillis?.() || 0) < now : false;
 
+  // ─── Start exam: record entry (1 write) ──────────────────────────────────
   const startExam = async () => {
     if (!exam || !user) return;
+    try {
+      await setDoc(doc(examDb, "examEntries", `${exam.id}_${user.uid}`), {
+        examId: exam.id,
+        userId: user.uid,
+        enteredAt: Timestamp.now(),
+      });
+      setExamEntered(true);
+    } catch (err) {
+      console.error("Failed to record exam entry:", err);
+    }
     setTimeLeft(exam.duration * 60);
     setStarted(true);
-    requestFullscreen();
+    if (hasMcqQuestions) requestFullscreen();
     const initial: Record<string, ExamAnswer> = {};
-    exam.questions.forEach(q => {
+    exam.questions.forEach((q) => {
       initial[q.id] = { questionId: q.id, marks: q.marks };
     });
     setAnswers(initial);
   };
 
   const selectOption = (questionId: string, optionIdx: number) => {
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
       [questionId]: { ...prev[questionId], selectedOption: optionIdx },
     }));
   };
 
+  const handleCameraCapture = async (questionId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    setIsUploadingWrittenState(true);
+    try {
+      const url = await uploadToImgBB(file);
+      setAnswers((prev) => ({
+        ...prev,
+        [questionId]: { ...prev[questionId], writtenImageUrl: url },
+      }));
+      toast.success("ছবি আপলোড হয়েছে");
+    } catch {
+      toast.error("আপলোড ব্যর্থ হয়েছে");
+    }
+    setUploadingImage(false);
+    setIsUploadingWrittenState(false);
+    if (hasMcqQuestions) setTimeout(() => requestFullscreen(), 500);
+  };
+
+  // ─── Submit: 1 write only ─────────────────────────────────────────────────
   const handleSubmitInternal = useCallback(async () => {
     if (!exam || !user || !userDoc || submitting || submittedRef.current) return;
     submittedRef.current = true;
@@ -153,15 +298,18 @@ export default function ExamTakePage() {
     const negativeMark = exam.negativeMark || 0;
     const deviceInfo = getDeviceInfo();
 
-    const answersList: ExamAnswer[] = exam.questions.map(q => {
+    const answersList: ExamAnswer[] = exam.questions.map((q) => {
       const ans = answers[q.id] || { questionId: q.id, marks: q.marks };
-      const isCorrect = ans.selectedOption === q.correctAnswer;
-      return { questionId: q.id, selectedOption: ans.selectedOption, isCorrect, marks: q.marks };
+      if (q.type === "mcq") {
+        const isCorrect = ans.selectedOption === q.correctAnswer;
+        return { ...ans, isCorrect, marks: q.marks };
+      }
+      return ans;
     });
 
-    const correctCount = answersList.filter(a => a.isCorrect).length;
-    const wrongCount = answersList.filter(a => a.selectedOption !== undefined && !a.isCorrect).length;
-    const correctMarks = answersList.filter(a => a.isCorrect).reduce((s, a) => s + a.marks, 0);
+    const correctCount = answersList.filter((a) => a.isCorrect).length;
+    const wrongCount = answersList.filter((a) => a.selectedOption !== undefined && !a.isCorrect).length;
+    const correctMarks = answersList.filter((a) => a.isCorrect).reduce((s, a) => s + a.marks, 0);
     const negativeTotal = wrongCount * negativeMark;
     const obtainedMarks = Math.max(0, correctMarks - negativeTotal);
     const passed = obtainedMarks >= (exam.passMark || 0);
@@ -183,18 +331,12 @@ export default function ExamTakePage() {
     };
 
     try {
-      const submissionId = `${exam.id}_${user.uid}`;
-      const submissionRef = doc(examDb, "submissions", submissionId);
-      await setDoc(submissionRef, submission);
+      const docRef = await addDoc(collection(examDb, "submissions"), submission);
+      const resultSub = { id: docRef.id, ...submission } as ExamSubmission;
 
-      try {
-        const counterRef = doc(examDb, "examCounters", exam.id);
-        await setDoc(counterRef, { totalParticipants: increment(1) }, { merge: true });
-      } catch {
-        // Non-critical
-      }
+      // Session cache update — পরের page load-এ Firebase read হবে না
+      submissionSessionCache.set(`${exam.id}_${user.uid}`, resultSub);
 
-      const resultSub = { id: submissionId, ...submission } as ExamSubmission;
       setResult(resultSub);
       setSubmitted(true);
       setStarted(false);
@@ -210,10 +352,29 @@ export default function ExamTakePage() {
 
   const handleSubmit = handleSubmitInternal;
 
+  // ─── Loading / Not Found ──────────────────────────────────────────────────
   if (loading) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>;
   if (!exam) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Exam not found</div>;
 
-  // ─── Result View ────────────────────────────────────────────────────────────
+  if (examEntered && !existingSubmission && !started && !submitted) {
+    const canReEnter = examStarted && !examEnded;
+    if (!canReEnter) {
+      return (
+        <div className="p-4 max-w-lg mx-auto animate-fade-in">
+          <button onClick={() => navigate("/exams")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+            <ArrowLeft className="h-4 w-4" /> Back to Exams
+          </button>
+          <div className="bg-card border border-border rounded-xl p-6 text-center">
+            <AlertTriangle className="h-10 w-10 text-destructive mx-auto mb-3" />
+            <h2 className="text-lg font-semibold text-foreground mb-2">পরীক্ষায় পুনরায় প্রবেশ করা যাবে না</h2>
+            <p className="text-sm text-muted-foreground">আপনি এই পরীক্ষায় আগে প্রবেশ করেছিলেন কিন্তু সাবমিট করেননি। পরীক্ষার সময় শেষ হয়ে গেছে।</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // ─── Result View ──────────────────────────────────────────────────────────
   if (submitted && result) {
     const passed = result.obtainedMarks >= (exam.passMark || 0);
     const negativeTotal = (result.wrongCount || 0) * (exam.negativeMark || 0);
@@ -225,9 +386,9 @@ export default function ExamTakePage() {
           <ArrowLeft className="h-4 w-4" /> Back to Exams
         </button>
 
+        {/* Result Card */}
         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
           <div className={`h-2 w-full ${passed ? "bg-gradient-to-r from-green-400 to-emerald-500" : "bg-gradient-to-r from-red-400 to-rose-500"}`} />
-
           <div className="p-6 text-center">
             <h2 className="text-base font-semibold text-foreground">{exam.title}</h2>
             <p className="text-xs text-muted-foreground mt-0.5 mb-5">Your Result</p>
@@ -239,10 +400,13 @@ export default function ExamTakePage() {
             <p className="text-sm text-muted-foreground mt-1">{scorePercent}% scored</p>
 
             <div className="mt-4">
-              <span className={`inline-flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-semibold ${passed
-                ? "bg-green-500/10 text-green-600 dark:text-green-400 ring-1 ring-green-500/20"
-                : "bg-red-500/10 text-red-600 dark:text-red-400 ring-1 ring-red-500/20"
-              }`}>
+              <span
+                className={`inline-flex items-center gap-1.5 px-5 py-1.5 rounded-full text-sm font-semibold ${
+                  passed
+                    ? "bg-green-500/10 text-green-600 dark:text-green-400 ring-1 ring-green-500/20"
+                    : "bg-red-500/10 text-red-600 dark:text-red-400 ring-1 ring-red-500/20"
+                }`}
+              >
                 {passed
                   ? <><Award className="h-4 w-4" /> উত্তীর্ণ (Passed)</>
                   : <><TrendingDown className="h-4 w-4" /> অনুত্তীর্ণ (Failed)</>
@@ -268,26 +432,44 @@ export default function ExamTakePage() {
               </div>
             </div>
 
-            {(exam.negativeMark || 0) > 0 && negativeTotal > 0 && (
+            {((exam.negativeMark || 0) > 0 && negativeTotal > 0) ||
+              (result.writtenMarks !== undefined && result.writtenMarks > 0) ? (
               <div className="flex items-center justify-center gap-4 mt-4 flex-wrap">
-                <div className="flex items-center gap-1.5 text-sm">
-                  <MinusCircle className="h-4 w-4 text-destructive" />
-                  <span className="text-muted-foreground">নেগেটিভ:</span>
-                  <span className="font-semibold text-destructive">-{negativeTotal}</span>
-                </div>
+                {(exam.negativeMark || 0) > 0 && negativeTotal > 0 && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <MinusCircle className="h-4 w-4 text-destructive" />
+                    <span className="text-muted-foreground">নেগেটিভ:</span>
+                    <span className="font-semibold text-destructive">-{negativeTotal}</span>
+                  </div>
+                )}
+                {result.writtenMarks !== undefined && result.writtenMarks > 0 && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span className="text-muted-foreground">লিখিত:</span>
+                    <span className="font-semibold text-foreground">
+                      {result.writtenMarks}
+                      {!result.writtenGraded && (
+                        <span className="text-xs text-muted-foreground ml-1">(মূল্যায়ন বাকি)</span>
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
+        {/* Ranking Section */}
         {examEnded && exam.resultPublished && (
           <div className="mt-4">
             {myRank === null ? (
               <button
                 onClick={loadMyRanking}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
+                disabled={rankLoading}
+                className="w-full py-3 bg-primary text-primary-foreground rounded-xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
-                <Trophy className="h-4 w-4" /> আমার র‍্যাংকিং দেখুন
+                <Trophy className="h-4 w-4" />
+                {rankLoading ? "লোড হচ্ছে..." : "আমার র‍্যাংকিং দেখুন"}
               </button>
             ) : (
               <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -301,9 +483,7 @@ export default function ExamTakePage() {
                   </div>
                 </div>
                 <div className="p-5 text-center">
-                  <p className="text-6xl font-extrabold tracking-tight text-foreground">
-                    #{myRank}
-                  </p>
+                  <p className="text-6xl font-extrabold tracking-tight text-foreground">#{myRank}</p>
                   <div className="flex items-center justify-center gap-1.5 mt-2">
                     <Users className="h-3.5 w-3.5 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
@@ -327,11 +507,12 @@ export default function ExamTakePage() {
         <div className="mt-6 space-y-3">
           <h3 className="font-semibold text-foreground">উত্তরপত্র পর্যালোচনা</h3>
           {exam.questions.map((q, idx) => {
-            const ans = result.answers.find(a => a.questionId === q.id);
+            const ans = result.answers.find((a) => a.questionId === q.id);
             return (
               <div key={q.id} className="bg-card border border-border rounded-xl p-3">
                 <p className="text-sm font-medium text-foreground">
-                  Q{idx + 1}. {q.questionText}
+                  Q{idx + 1}. {q.questionText}{" "}
+                  <span className="text-xs text-muted-foreground">({q.type === "mcq" ? "MCQ" : "Written"})</span>
                 </p>
                 {q.questionImage && (
                   <img
@@ -341,7 +522,7 @@ export default function ExamTakePage() {
                     onClick={() => setPreviewImage(q.questionImage!)}
                   />
                 )}
-                {q.options && (
+                {q.type === "mcq" && q.options && (
                   <div className="mt-2 space-y-1">
                     {q.options.map((opt, oIdx) => {
                       const isCorrect = oIdx === q.correctAnswer;
@@ -361,6 +542,38 @@ export default function ExamTakePage() {
                     })}
                   </div>
                 )}
+                {q.type === "written" && ans?.writtenImageUrl && (
+                  <div className="mt-2">
+                    <p className="text-xs text-muted-foreground mb-1">Your answer:</p>
+                    <div className="relative inline-block group cursor-pointer" onClick={() => setPreviewImage(ans.writtenImageUrl!)}>
+                      <img src={ans.writtenImageUrl} alt="Answer" className="h-32 rounded-lg object-contain" />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                        <ZoomIn className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                    {ans.writtenMarksAwarded !== undefined && (
+                      <p className="text-xs mt-1 text-foreground font-medium">Marks: {ans.writtenMarksAwarded}/{q.marks}</p>
+                    )}
+                  </div>
+                )}
+                {q.type === "written" && !ans?.writtenImageUrl && (
+                  <p className="text-xs text-muted-foreground italic mt-2">No answer submitted</p>
+                )}
+                {q.type === "written" && q.writtenAnswer && (
+                  <div className="mt-2 p-2 bg-green-500/10 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Correct Answer:</p>
+                    {q.writtenAnswer.startsWith("http") ? (
+                      <div className="relative inline-block group cursor-pointer" onClick={() => setPreviewImage(q.writtenAnswer!)}>
+                        <img src={q.writtenAnswer} alt="Answer" className="h-32 rounded-lg object-contain" />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <ZoomIn className="h-6 w-6 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground">{q.writtenAnswer}</p>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -371,38 +584,50 @@ export default function ExamTakePage() {
     );
   }
 
-  // ─── Pre-start View ─────────────────────────────────────────────────────────
+  // ─── Pre-start View ───────────────────────────────────────────────────────
   if (!started) {
+    const mcqCount = exam.questions.filter((q) => q.type === "mcq").length;
+    const writtenCount = exam.questions.filter((q) => q.type === "written").length;
+    const examTypeLabel =
+      mcqCount > 0 && writtenCount > 0 ? "MCQ + Written" : mcqCount > 0 ? "MCQ" : "Written";
+
     const rules: { icon: React.ReactNode; text: React.ReactNode; variant: "primary" | "danger" }[] = [
-      {
-        icon: <Maximize className="h-3.5 w-3.5" />,
-        text: <>পরীক্ষা <strong>ফুলস্ক্রিন মোডে</strong> চলবে। বের হতে চাইলে অবশ্যই <strong>সাবমিট</strong> করতে হবে।</>,
-        variant: "primary",
-      },
-      {
-        icon: <AlertTriangle className="h-3.5 w-3.5" />,
-        text: <><strong>২ বার ট্যাব সুইচ</strong> করলে পরীক্ষা <strong>অটো-সাবমিট</strong> হয়ে যাবে।</>,
-        variant: "danger",
-      },
-      {
-        icon: <XCircle className="h-3.5 w-3.5" />,
-        text: <><strong>কপি, পেস্ট এবং রাইট-ক্লিক</strong> পরীক্ষা চলাকালীন নিষিদ্ধ।</>,
-        variant: "danger",
-      },
+      ...(hasMcqQuestions
+        ? [
+            {
+              icon: <Maximize className="h-3.5 w-3.5" />,
+              text: <>পরীক্ষা <strong>ফুলস্ক্রিন মোডে</strong> চলবে। বের হতে চাইলে অবশ্যই <strong>সাবমিট</strong> করতে হবে।</>,
+              variant: "primary" as const,
+            },
+            {
+              icon: <AlertTriangle className="h-3.5 w-3.5" />,
+              text: <><strong>২ বার ট্যাব সুইচ</strong> করলে পরীক্ষা <strong>অটো-সাবমিট</strong> হয়ে যাবে।</>,
+              variant: "danger" as const,
+            },
+            {
+              icon: <XCircle className="h-3.5 w-3.5" />,
+              text: <><strong>কপি, পেস্ট এবং রাইট-ক্লিক</strong> পরীক্ষা চলাকালীন নিষিদ্ধ।</>,
+              variant: "danger" as const,
+            },
+          ]
+        : []),
       {
         icon: <Monitor className="h-3.5 w-3.5" />,
         text: <>আপনার <strong>ডিভাইস ও ব্রাউজার তথ্য</strong> রেকর্ড করা হবে।</>,
-        variant: "primary",
+        variant: "primary" as const,
       },
+      ...(hasMcqQuestions
+        ? [{ icon: <Camera className="h-3.5 w-3.5" />, text: <><strong>স্ক্রিনশট</strong> নেওয়া যাবে না।</>, variant: "danger" as const }]
+        : []),
       {
         icon: <Clock className="h-3.5 w-3.5" />,
         text: <>সময় শেষ হলে পরীক্ষা <strong>অটো-সাবমিট</strong> হবে।</>,
-        variant: "primary",
+        variant: "primary" as const,
       },
       {
         icon: <Shield className="h-3.5 w-3.5" />,
         text: <>একবার পরীক্ষায় প্রবেশ করলে <strong>সাবমিট না করে বের হওয়া যাবে না</strong>। পরবর্তীতে আবার দেওয়া যাবে না।</>,
-        variant: "danger",
+        variant: "danger" as const,
       },
     ];
 
@@ -427,7 +652,7 @@ export default function ExamTakePage() {
 
           <div className="grid grid-cols-2 gap-px bg-border">
             {[
-              { label: "ধরন", value: "MCQ" },
+              { label: "ধরন", value: examTypeLabel },
               { label: "প্রশ্ন সংখ্যা", value: `${exam.questions.length}টি` },
               { label: "মোট নম্বর", value: exam.totalMarks },
               { label: "সময়কাল", value: `${exam.duration} মিনিট` },
@@ -436,15 +661,13 @@ export default function ExamTakePage() {
               {
                 label: "শুরু",
                 value: exam.startTime?.toDate?.()?.toLocaleString("en-US", {
-                  hour: "numeric", minute: "2-digit", hour12: true,
-                  month: "short", day: "numeric", year: "numeric",
+                  hour: "numeric", minute: "2-digit", hour12: true, month: "short", day: "numeric", year: "numeric",
                 }),
               },
               {
                 label: "শেষ",
                 value: exam.endTime?.toDate?.()?.toLocaleString("en-US", {
-                  hour: "numeric", minute: "2-digit", hour12: true,
-                  month: "short", day: "numeric", year: "numeric",
+                  hour: "numeric", minute: "2-digit", hour12: true, month: "short", day: "numeric", year: "numeric",
                 }),
               },
             ].map(({ label, value }, i) => (
@@ -462,7 +685,6 @@ export default function ExamTakePage() {
               <Shield className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold text-foreground">পরীক্ষার নিয়ম ও নিরাপত্তা</h3>
             </div>
-
             <div className="space-y-2">
               {rules.map((rule, i) => (
                 <div
@@ -473,36 +695,34 @@ export default function ExamTakePage() {
                       : "bg-primary/5 border-primary/15"
                   }`}
                 >
-                  <span className={`shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center ${
-                    rule.variant === "danger"
-                      ? "bg-destructive/15 text-destructive"
-                      : "bg-primary/15 text-primary"
-                  }`}>
+                  <span
+                    className={`shrink-0 mt-0.5 h-5 w-5 rounded-full flex items-center justify-center ${
+                      rule.variant === "danger"
+                        ? "bg-destructive/15 text-destructive"
+                        : "bg-primary/15 text-primary"
+                    }`}
+                  >
                     {rule.icon}
                   </span>
                   <span className="text-sm text-foreground leading-snug">{rule.text}</span>
                 </div>
               ))}
             </div>
-
             <label
               className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
-                rulesAccepted
-                  ? "bg-primary/5 border-primary/30"
-                  : "bg-card border-border hover:bg-accent/50"
+                rulesAccepted ? "bg-primary/5 border-primary/30" : "bg-card border-border hover:bg-accent/50"
               }`}
             >
               <input
                 type="checkbox"
                 checked={rulesAccepted}
-                onChange={e => setRulesAccepted(e.target.checked)}
+                onChange={(e) => setRulesAccepted(e.target.checked)}
                 className="w-4 h-4 rounded border-border accent-primary shrink-0"
               />
               <span className="text-sm font-medium text-foreground">
                 আমি পরীক্ষার সকল নিয়মগুলো পড়েছি এবং মানতে সম্মত আছি
               </span>
             </label>
-
             <button
               onClick={startExam}
               disabled={!rulesAccepted}
@@ -528,12 +748,18 @@ export default function ExamTakePage() {
               {exam.questions.map((q, idx) => (
                 <div key={q.id} className="bg-card border border-border rounded-xl p-3">
                   <p className="text-sm font-medium text-foreground">
-                    Q{idx + 1}. {q.questionText}
+                    Q{idx + 1}. {q.questionText}{" "}
+                    <span className="text-xs text-muted-foreground">({q.type === "mcq" ? "MCQ" : "Written"})</span>
                   </p>
                   {q.questionImage && (
-                    <img src={q.questionImage} alt="" className="h-24 rounded-lg object-contain mt-2 cursor-pointer hover:opacity-80" onClick={() => setPreviewImage(q.questionImage!)} />
+                    <img
+                      src={q.questionImage}
+                      alt=""
+                      className="h-24 rounded-lg object-contain mt-2 cursor-pointer hover:opacity-80"
+                      onClick={() => setPreviewImage(q.questionImage!)}
+                    />
                   )}
-                  {q.options && (
+                  {q.type === "mcq" && q.options && (
                     <div className="mt-2 space-y-1">
                       {q.options.map((opt, oIdx) => {
                         const isCorrect = oIdx === q.correctAnswer;
@@ -548,6 +774,21 @@ export default function ExamTakePage() {
                       })}
                     </div>
                   )}
+                  {q.type === "written" && q.writtenAnswer && (
+                    <div className="mt-2 p-2 bg-green-500/10 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">Correct Answer:</p>
+                      {q.writtenAnswer.startsWith("http") ? (
+                        <div className="relative inline-block group cursor-pointer" onClick={() => setPreviewImage(q.writtenAnswer!)}>
+                          <img src={q.writtenAnswer} alt="Answer" className="h-32 rounded-lg object-contain" />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                            <ZoomIn className="h-6 w-6 text-white" />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-foreground">{q.writtenAnswer}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -559,11 +800,20 @@ export default function ExamTakePage() {
     );
   }
 
-  // ─── Exam Taking View ────────────────────────────────────────────────────────
+  // ─── Exam Taking View ─────────────────────────────────────────────────────
   const question = exam.questions[currentQ];
 
   return (
     <div className="p-4 max-w-2xl mx-auto animate-fade-in select-none">
+      {!isFullscreen && started && isUploadingWrittenState && hasMcqQuestions && (
+        <div
+          className="fixed top-0 left-0 right-0 z-50 bg-primary text-primary-foreground text-center py-2 text-sm font-medium cursor-pointer"
+          onClick={requestFullscreen}
+        >
+          📸 ছবি আপলোড মোড — আপলোড শেষে ফুলস্ক্রিনে ফিরে যেতে এখানে ক্লিক করুন
+        </div>
+      )}
+
       {/* Timer bar */}
       <div className="sticky top-0 z-40 bg-background border-b border-border -mx-4 px-4 py-2 flex items-center justify-between">
         <span className="text-sm text-foreground font-medium">Q {currentQ + 1}/{exam.questions.length}</span>
@@ -572,9 +822,10 @@ export default function ExamTakePage() {
         </span>
       </div>
 
+      {/* Navigation dots */}
       <div className="flex flex-wrap gap-1.5 mt-3 mb-4">
         {exam.questions.map((q, idx) => {
-          const answered = answers[q.id]?.selectedOption !== undefined;
+          const answered = answers[q.id]?.selectedOption !== undefined || answers[q.id]?.writtenImageUrl;
           return (
             <button
               key={q.id}
@@ -583,8 +834,8 @@ export default function ExamTakePage() {
                 idx === currentQ
                   ? "border-primary bg-primary text-primary-foreground"
                   : answered
-                    ? "border-primary/50 bg-primary/10 text-foreground"
-                    : "border-border bg-card text-muted-foreground"
+                  ? "border-primary/50 bg-primary/10 text-foreground"
+                  : "border-border bg-card text-muted-foreground"
               }`}
             >
               {idx + 1}
@@ -593,6 +844,7 @@ export default function ExamTakePage() {
         })}
       </div>
 
+      {/* Question */}
       <div className="bg-card border border-border rounded-xl p-4">
         <p className="text-sm font-medium text-foreground mb-1">
           Question {currentQ + 1} <span className="text-muted-foreground">({question.marks} marks)</span>
@@ -602,7 +854,7 @@ export default function ExamTakePage() {
           <img src={question.questionImage} alt="" className="mt-3 max-h-48 rounded-lg object-contain pointer-events-none" />
         )}
 
-        {question.options && (
+        {question.type === "mcq" && question.options && (
           <div className="mt-4 space-y-2">
             {question.options.map((opt, oIdx) => {
               const selected = answers[question.id]?.selectedOption === oIdx;
@@ -614,9 +866,11 @@ export default function ExamTakePage() {
                     selected ? "border-primary bg-primary/10 text-foreground" : "border-border bg-card text-foreground hover:bg-accent"
                   }`}
                 >
-                  <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs shrink-0 ${
-                    selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
-                  }`}>
+                  <span
+                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs shrink-0 ${
+                      selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                    }`}
+                  >
                     {String.fromCharCode(65 + oIdx)}
                   </span>
                   <span className="flex-1">{opt.text}</span>
@@ -626,8 +880,37 @@ export default function ExamTakePage() {
             })}
           </div>
         )}
+
+        {question.type === "written" && (
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground mb-2">Upload your answer (take a photo):</p>
+            <input
+              ref={cameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => handleCameraCapture(question.id, e)}
+              className="hidden"
+            />
+            <button
+              onClick={() => { setIsUploadingWrittenState(true); cameraRef.current?.click(); }}
+              disabled={uploadingImage}
+              className="flex items-center gap-2 px-4 py-3 bg-accent border border-border rounded-xl text-sm text-foreground w-full justify-center"
+            >
+              <Camera className="h-4 w-4" /> {uploadingImage ? "Uploading..." : "Take Photo / Upload Image"}
+            </button>
+            {answers[question.id]?.writtenImageUrl && (
+              <img
+                src={answers[question.id].writtenImageUrl}
+                alt="Answer"
+                className="mt-3 max-h-48 rounded-lg object-contain mx-auto pointer-events-none"
+              />
+            )}
+          </div>
+        )}
       </div>
 
+      {/* Navigation */}
       <div className="flex items-center justify-between mt-4">
         <button
           onClick={() => setCurrentQ(Math.max(0, currentQ - 1))}
@@ -655,12 +938,15 @@ export default function ExamTakePage() {
         )}
       </div>
 
+      {/* Submit confirmation */}
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>পরীক্ষা সাবমিট করুন</AlertDialogTitle>
             <AlertDialogDescription>
-              আপনি কি সাবমিট করতে চান? আপনি {Object.values(answers).filter(a => a.selectedOption !== undefined).length}/{exam.questions.length} টি প্রশ্নের উত্তর দিয়েছেন।
+              আপনি কি সাবমিট করতে চান? আপনি{" "}
+              {Object.values(answers).filter((a) => a.selectedOption !== undefined || a.writtenImageUrl).length}/
+              {exam.questions.length} টি প্রশ্নের উত্তর দিয়েছেন।
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -670,12 +956,16 @@ export default function ExamTakePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showExitConfirm} onOpenChange={(open) => {
-        if (!open) {
-          setShowExitConfirm(false);
-          setTimeout(() => requestFullscreen(), 200);
-        }
-      }}>
+      {/* Exit confirmation */}
+      <AlertDialog
+        open={showExitConfirm}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowExitConfirm(false);
+            if (hasMcqQuestions) setTimeout(() => requestFullscreen(), 200);
+          }
+        }}
+      >
         <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>⚠️ পরীক্ষা থেকে বের হতে চান?</AlertDialogTitle>
@@ -684,10 +974,12 @@ export default function ExamTakePage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setShowExitConfirm(false);
-              setTimeout(() => requestFullscreen(), 200);
-            }}>
+            <AlertDialogCancel
+              onClick={() => {
+                setShowExitConfirm(false);
+                if (hasMcqQuestions) setTimeout(() => requestFullscreen(), 200);
+              }}
+            >
               Cancel — পরীক্ষা চালিয়ে যান
             </AlertDialogCancel>
             <AlertDialogAction

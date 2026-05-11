@@ -11,9 +11,11 @@ const TTL = {
   videos: 15 * 60 * 1000,        // 15 min — videos rarely change mid-class
   settings: 60 * 60 * 1000,      // 60 min — settings change very rarely
   users: 5 * 60 * 1000,          // 5 min
-  exams: 10 * 60 * 1000,         // 10 min — exam list is stable once published
+  exams: 60 * 60 * 1000,         // 60 min — exam list is stable once published
+  examQuestions: 120 * 60 * 1000,// 2 hrs — questions never change mid-exam
+  submissions: 30 * 60 * 1000,   // 30 min
   enrollRequests: 3 * 60 * 1000, // 3 min
-  examCounters: 60 * 1000,       // 1 min — this updates frequently on exam day
+  examCounters: 5 * 60 * 1000,   // 5 min
   default: 10 * 60 * 1000,       // 10 min
 };
 
