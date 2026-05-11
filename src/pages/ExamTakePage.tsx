@@ -210,6 +210,18 @@ export default function ExamTakePage() {
   // Session-এ duplicate read নেই।
   const loadMyRanking = async () => {
     if (!exam || !user || rankLoading) return;
+    // ✅ Session cache — বারবার click করলেও আর Firebase read হবে না
+    const cacheKey = `ranking_${exam.id}_${user.uid}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const { rank, total } = JSON.parse(cached);
+        setMyRank(rank);
+        setTotalParticipants(total);
+        return;
+      }
+    } catch { /* ignore */ }
+
     setRankLoading(true);
     try {
       // ✅ examId দিয়ে filter — full collection scan নয়
@@ -221,9 +233,14 @@ export default function ExamTakePage() {
       const subs = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as ExamSubmission))
         .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
-      setTotalParticipants(subs.length);
-      const rank = subs.findIndex((s) => s.userId === user.uid);
-      setMyRank(rank >= 0 ? rank + 1 : null);
+      const total = subs.length;
+      const idx = subs.findIndex((s) => s.userId === user.uid);
+      const rank = idx >= 0 ? idx + 1 : null;
+      setTotalParticipants(total);
+      setMyRank(rank);
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ rank, total }));
+      } catch { /* ignore */ }
     } finally {
       setRankLoading(false);
     }
