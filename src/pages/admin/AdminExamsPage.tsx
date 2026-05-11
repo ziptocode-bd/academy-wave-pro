@@ -8,9 +8,10 @@ import { db } from "@/lib/firebase";
 import { Exam, ExamSubmission } from "@/types/exam";
 import { Course } from "@/types";
 import { toast } from "sonner";
+import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import {
-  Trash2, Edit, Eye, Plus, Download, Upload, Trophy, CheckCircle, XCircle,
-  Image, Save, ArrowLeft, ZoomIn, FileText, ChevronLeft, ChevronRight,
+  Trash2, Edit, Eye, Plus, Download, Upload, Trophy,
+  FileText, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import {
@@ -33,9 +34,6 @@ export default function AdminExamsPage() {
   const [submissions, setSubmissions] = useState<ExamSubmission[]>([]);
   const [activeTab, setActiveTab] = useState("exams");
   const [filterCourse, setFilterCourse] = useState("");
-  const [gradingSubmission, setGradingSubmission] = useState<ExamSubmission | null>(null);
-  const [writtenMarks, setWrittenMarks] = useState<Record<string, number>>({});
-  const [savingGrade, setSavingGrade] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingResults, setLoadingResults] = useState(false);
@@ -44,18 +42,19 @@ export default function AdminExamsPage() {
   // কোনো exam-এর submissions একবার fetch করলে আর Firebase থেকে পড়তে হবে না।
   const submissionsCache = useRef<Map<string, ExamSubmission[]>>(new Map());
 
-  // ─── Fetch exams (once on mount) ──────────────────────────────────────────
-  const fetchExams = async () => {
+  // ─── Fetch exams (cached) ─────────────────────────────────────────────────
+  const fetchExams = async (force = false) => {
     setLoading(true);
-    const snap = await getDocs(collection(examDb, "exams"));
-    setExams(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Exam)));
+    if (force) invalidateCache("exams");
+    const list = await getCachedCollection<Exam>(examDb, "exams");
+    setExams(list);
     setLoading(false);
   };
 
-  // ─── Fetch courses (once on mount, low-change data) ───────────────────────
+  // ─── Fetch courses (cached, low-change data) ──────────────────────────────
   const fetchCourses = async () => {
-    const snap = await getDocs(collection(db, "courses"));
-    setCourses(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Course)));
+    const list = await getCachedCollection<Course>(db, "courses");
+    setCourses(list);
   };
 
   useEffect(() => {
@@ -69,6 +68,7 @@ export default function AdminExamsPage() {
     toast.success("Exam deleted");
     setExams((prev) => prev.filter((e) => e.id !== id));               // ✅ 0 extra reads
     submissionsCache.current.delete(id);                                // cache invalidate
+    invalidateCache("exams");
   };
 
   // ─── View Results: use WHERE query, not full collection scan ──────────────
