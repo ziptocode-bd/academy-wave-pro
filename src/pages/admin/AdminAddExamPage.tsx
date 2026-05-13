@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { collection, getDocs, addDoc, updateDoc, doc, getDoc, Timestamp } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
+import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { Exam, ExamQuestion } from "@/types/exam";
 import { Course } from "@/types";
 import { toast } from "sonner";
