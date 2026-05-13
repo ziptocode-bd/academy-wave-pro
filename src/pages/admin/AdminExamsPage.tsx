@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  collection, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where,
+  collection, deleteDoc, doc, updateDoc, setDoc, query, where, getDocs,
 } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
 import { Exam, ExamSubmission } from "@/types/exam";
 import { Course } from "@/types";
 import { toast } from "sonner";
+import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import {
-  Trash2, Edit, Eye, Plus, Download, Upload, Trophy, CheckCircle, XCircle,
-  Image, Save, ArrowLeft, ZoomIn, FileText, ChevronLeft, ChevronRight,
+  Trash2, Edit, Eye, Plus, Download, Upload, Trophy,
+  FileText, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { ImagePreviewDialog } from "@/components/ImagePreviewDialog";
 import {
