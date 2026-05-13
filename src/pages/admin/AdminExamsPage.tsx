@@ -99,68 +99,6 @@ export default function AdminExamsPage() {
     }
   };
 
-  const openGrading = (sub: ExamSubmission) => {
-    setGradingSubmission(sub);
-    const marks: Record<string, number> = {};
-    sub.answers.forEach((a) => {
-      if (a.writtenMarksAwarded !== undefined) marks[a.questionId] = a.writtenMarksAwarded;
-    });
-    setWrittenMarks(marks);
-  };
-
-  // ─── Save grading: update local state + cache, no re-fetch ───────────────
-  const saveGrading = async () => {
-    if (!gradingSubmission || !resultsExam) return;
-    setSavingGrade(true);
-    try {
-      const updatedAnswers = gradingSubmission.answers.map((a) => {
-        const q = resultsExam.questions.find((q) => q.id === a.questionId);
-        if (q?.type === "written" && writtenMarks[a.questionId] !== undefined) {
-          return { ...a, writtenMarksAwarded: writtenMarks[a.questionId] };
-        }
-        return a;
-      });
-
-      const mcqMarks = updatedAnswers.filter((a) => a.isCorrect).reduce((s, a) => s + a.marks, 0);
-      const wrongCount = updatedAnswers.filter(
-        (a) => a.selectedOption !== undefined && !a.isCorrect
-      ).length;
-      const negativeTotal = wrongCount * (resultsExam.negativeMark || 0);
-      const writtenTotal = Object.values(writtenMarks).reduce((s, m) => s + m, 0);
-      const obtainedMarks = Math.max(0, mcqMarks - negativeTotal) + writtenTotal;
-      const passed = obtainedMarks >= (resultsExam.passMark || 0);
-
-      await updateDoc(doc(examDb, "submissions", gradingSubmission.id), {
-        answers: updatedAnswers,
-        obtainedMarks,
-        passed,
-        writtenGraded: true,
-        writtenMarks: writtenTotal,
-      });
-
-      // ✅ Local state + cache update — re-fetch করতে হবে না
-      const updatedSub: ExamSubmission = {
-        ...gradingSubmission,
-        answers: updatedAnswers,
-        obtainedMarks,
-        passed,
-        writtenGraded: true,
-        writtenMarks: writtenTotal,
-      };
-      const updatedSubs = submissions
-        .map((s) => (s.id === gradingSubmission.id ? updatedSub : s))
-        .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
-
-      setSubmissions(updatedSubs);
-      submissionsCache.current.set(resultsExam.id, updatedSubs);        // cache update
-      setGradingSubmission(null);
-      toast.success("Grades saved");
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-    setSavingGrade(false);
-  };
-
   // ─── Publish toggle: update local state, no re-fetch ─────────────────────
   const togglePublish = async (exam: Exam) => {
     const newValue = !exam.resultPublished;
