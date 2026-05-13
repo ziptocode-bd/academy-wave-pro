@@ -449,7 +449,6 @@ export default function AdminExamsPage() {
                 <div className="space-y-2">
                   {submissions.map((sub, idx) => {
                     const passed = sub.obtainedMarks >= (resultsExam.passMark || 0);
-                    const hasWrittenQ = resultsExam.questions.some((q) => q.type === "written");
                     return (
                       <div key={sub.id} className="bg-card border border-border rounded-xl p-3">
                         <div className="flex items-center justify-between">
@@ -484,19 +483,6 @@ export default function AdminExamsPage() {
                             </div>
                           </div>
                         </div>
-                        {hasWrittenQ && (
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                            <span className="text-xs text-muted-foreground">
-                              Written: {sub.writtenGraded ? `${sub.writtenMarks} marks` : "Not graded"}
-                            </span>
-                            <button
-                              onClick={() => openGrading(sub)}
-                              className="flex items-center gap-1 px-3 py-1 bg-accent border border-border rounded-lg text-xs font-medium text-foreground hover:bg-accent/80"
-                            >
-                              <Image className="h-3 w-3" /> {sub.writtenGraded ? "Edit Grade" : "Grade"}
-                            </button>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
