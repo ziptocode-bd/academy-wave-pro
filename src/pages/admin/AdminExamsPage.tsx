@@ -63,17 +63,15 @@ export default function AdminExamsPage() {
   // ─── Delete: update local state instead of re-fetching ────────────────────
   const handleDelete = async (id: string) => {
     await deleteDoc(doc(examDb, "exams", id));
+    invalidateCache("exams");
     toast.success("Exam deleted");
-    setExams((prev) => prev.filter((e) => e.id !== id));               // ✅ 0 extra reads
-    submissionsCache.current.delete(id);                                // cache invalidate
+    setExams((prev) => prev.filter((e) => e.id !== id));
+    submissionsCache.current.delete(id);
   };
 
-  // ─── View Results: use WHERE query, not full collection scan ──────────────
-  // আগের কোড সমস্ত submissions পড়ত (হাজার হাজার read)।
-  // এখন শুধু ওই exam-এর submissions query করে + cache রাখে।
+  // ─── View Results: WHERE query + cache ───────────────────────────────────
   const viewResults = async (exam: Exam, forceRefresh = false) => {
     setResultsExam(exam);
-    setGradingSubmission(null);
     setActiveTab("results");
 
     // Cache hit — Firebase read লাগবে না
