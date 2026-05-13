@@ -103,6 +103,7 @@ export default function AdminExamsPage() {
   const togglePublish = async (exam: Exam) => {
     const newValue = !exam.resultPublished;
     await updateDoc(doc(examDb, "exams", exam.id), { resultPublished: newValue });
+    invalidateCache("exams");
     toast.success(newValue ? "Result published" : "Result unpublished");
     setExams((prev) =>                                                   // ✅ 0 extra reads
       prev.map((e) => (e.id === exam.id ? { ...e, resultPublished: newValue } : e))
