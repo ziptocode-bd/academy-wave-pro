@@ -154,21 +154,19 @@ export default function AdminExamsPage() {
   const downloadRankingPDF = () => {
     if (!resultsExam || submissions.length === 0) return;
     const passMark = resultsExam.passMark || 0;
-    const hasWritten = resultsExam.questions.some((q) => q.type === "written");
     let html = `<html><head><meta charset="utf-8"><title>${resultsExam.title} - Rankings</title>
     <style>body{font-family:'Segoe UI',sans-serif;padding:40px;color:#333}h1{font-size:22px;margin-bottom:4px}h2{font-size:14px;color:#666;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f5f5f5;text-align:left;padding:10px;border-bottom:2px solid #ddd}td{padding:10px;border-bottom:1px solid #eee}.pass{color:#2e7d32;font-weight:600}.fail{color:#c62828;font-weight:600}</style></head><body>
     <h1>${resultsExam.title}</h1>
     <h2>${resultsExam.courseName} • Total: ${resultsExam.totalMarks} • Pass: ${passMark}</h2>
-    <table><tr><th>Rank</th><th>Name</th><th>Email</th><th>Marks</th><th>Correct</th><th>Wrong</th>${hasWritten ? "<th>Written</th>" : ""}<th>Status</th></tr>`;
+    <table><tr><th>Rank</th><th>Name</th><th>Email</th><th>Marks</th><th>Correct</th><th>Wrong</th><th>Status</th></tr>`;
     submissions.forEach((sub, idx) => {
       const passed = sub.obtainedMarks >= passMark;
-      html += `<tr><td>${idx + 1}</td><td>${sub.userName}</td><td>${sub.userEmail}</td><td>${sub.obtainedMarks}/${sub.totalMarks}</td><td>${sub.correctCount}</td><td>${sub.wrongCount}</td>${hasWritten ? `<td>${sub.writtenMarks ?? "N/A"}</td>` : ""}<td class="${passed ? "pass" : "fail"}">${passed ? "Pass" : "Fail"}</td></tr>`;
+      html += `<tr><td>${idx + 1}</td><td>${sub.userName}</td><td>${sub.userEmail}</td><td>${sub.obtainedMarks}/${sub.totalMarks}</td><td>${sub.correctCount}</td><td>${sub.wrongCount}</td><td class="${passed ? "pass" : "fail"}">${passed ? "Pass" : "Fail"}</td></tr>`;
     });
     html += `</table></body></html>`;
     const w = window.open("", "_blank");
     if (w) { w.document.write(html); w.document.close(); w.onload = () => w.print(); }
   };
-
   const downloadQuestionsPDF = (exam: Exam) => {
     let html = `<html><head><meta charset="utf-8"><title>${exam.title} - Questions & Answers</title>
     <style>body{font-family:'Segoe UI',sans-serif;padding:40px;color:#333;line-height:1.6}h1{font-size:22px;margin-bottom:4px;color:#111}h2{font-size:14px;color:#666;margin-bottom:20px}.question{margin-bottom:24px;padding:16px;border:1px solid #e0e0e0;border-radius:8px;page-break-inside:avoid}.q-header{font-weight:600;font-size:15px;margin-bottom:8px;color:#111}.q-type{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:#f0f0f0;color:#666;margin-left:8px}.option{padding:6px 12px;margin:4px 0;border-radius:6px;font-size:13px}.correct{background:#e8f5e9;color:#2e7d32;font-weight:600}.answer-label{font-size:12px;color:#888;margin-top:8px;margin-bottom:4px}.answer-text{font-size:14px;color:#2e7d32;font-weight:500}img{max-height:200px;border-radius:6px;margin:8px 0}</style></head><body>
