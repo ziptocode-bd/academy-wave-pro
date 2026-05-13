@@ -34,29 +34,25 @@ export default function AdminExamsPage() {
   const [submissions, setSubmissions] = useState<ExamSubmission[]>([]);
   const [activeTab, setActiveTab] = useState("exams");
   const [filterCourse, setFilterCourse] = useState("");
-  const [gradingSubmission, setGradingSubmission] = useState<ExamSubmission | null>(null);
-  const [writtenMarks, setWrittenMarks] = useState<Record<string, number>>({});
-  const [savingGrade, setSavingGrade] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loadingResults, setLoadingResults] = useState(false);
 
   // ─── In-memory cache: submissions per examId ───────────────────────────────
-  // কোনো exam-এর submissions একবার fetch করলে আর Firebase থেকে পড়তে হবে না।
   const submissionsCache = useRef<Map<string, ExamSubmission[]>>(new Map());
 
-  // ─── Fetch exams (once on mount) ──────────────────────────────────────────
+  // ─── Fetch exams (cached) ─────────────────────────────────────────────────
   const fetchExams = async () => {
     setLoading(true);
-    const snap = await getDocs(collection(examDb, "exams"));
-    setExams(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Exam)));
+    const list = await getCachedCollection<Exam>(examDb, "exams");
+    setExams(list);
     setLoading(false);
   };
 
-  // ─── Fetch courses (once on mount, low-change data) ───────────────────────
+  // ─── Fetch courses (cached) ───────────────────────────────────────────────
   const fetchCourses = async () => {
-    const snap = await getDocs(collection(db, "courses"));
-    setCourses(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Course)));
+    const list = await getCachedCollection<Course>(db, "courses");
+    setCourses(list);
   };
 
   useEffect(() => {
