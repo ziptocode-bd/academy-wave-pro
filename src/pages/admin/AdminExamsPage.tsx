@@ -174,25 +174,15 @@ export default function AdminExamsPage() {
     <h2>${exam.courseName} • Total: ${exam.totalMarks} Marks • Duration: ${exam.duration} min • Pass: ${exam.passMark || 0}</h2>`;
 
     exam.questions.forEach((q, idx) => {
-      html += `<div class="question"><div class="q-header">Q${idx + 1}. ${q.questionText} <span class="q-type">${q.type === "mcq" ? "MCQ" : "Written"} • ${q.marks} marks</span></div>`;
+      html += `<div class="question"><div class="q-header">Q${idx + 1}. ${q.questionText} <span class="q-type">MCQ • ${q.marks} marks</span></div>`;
       if (q.questionImage) html += `<img src="${q.questionImage}" alt="Question Image" />`;
-      if (q.type === "mcq" && q.options) {
+      if (q.options) {
         q.options.forEach((opt, oIdx) => {
           const isCorrect = oIdx === q.correctAnswer;
           html += `<div class="option ${isCorrect ? "correct" : ""}">${String.fromCharCode(65 + oIdx)}) ${opt.text} ${isCorrect ? "✓" : ""}</div>`;
           if (opt.image) html += `<img src="${opt.image}" alt="Option" style="max-height:80px;margin-left:20px" />`;
         });
         html += `<div class="answer-label">Correct Answer:</div><div class="answer-text">${String.fromCharCode(65 + (q.correctAnswer || 0))}) ${q.options[q.correctAnswer || 0]?.text || ""}</div>`;
-      }
-      if (q.type === "written") {
-        html += `<div class="answer-label">Model Answer:</div>`;
-        if (q.writtenAnswer) {
-          html += q.writtenAnswer.startsWith("http")
-            ? `<img src="${q.writtenAnswer}" alt="Answer" />`
-            : `<div class="answer-text">${q.writtenAnswer}</div>`;
-        } else {
-          html += `<div class="answer-text" style="color:#999">No model answer provided</div>`;
-        }
       }
       html += `</div>`;
     });
@@ -208,133 +198,8 @@ export default function AdminExamsPage() {
 
   useEffect(() => { setCurrentPage(1); }, [filterCourse]);
 
-  const getExamTypeLabel = (exam: Exam) => {
-    const hasMcq = exam.questions?.some((q) => q.type === "mcq");
-    const hasWritten = exam.questions?.some((q) => q.type === "written");
-    if (hasMcq && hasWritten) return "MCQ + Written";
-    if (hasWritten) return "Written";
-    return "MCQ";
-  };
+  const getExamTypeLabel = (_exam: Exam) => "MCQ";
 
-  // ─── Grading View ────────────────────────────────────────────────────────
-  if (gradingSubmission && resultsExam) {
-    return (
-      <div className="p-4 max-w-2xl mx-auto animate-fade-in">
-        <button
-          onClick={() => setGradingSubmission(null)}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to Results
-        </button>
-        <h2 className="text-lg font-semibold text-foreground mb-1">Grade Written Answers</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          {gradingSubmission.userName} • {gradingSubmission.userEmail}
-        </p>
-
-        <div className="space-y-4">
-          {resultsExam.questions.map((q, idx) => {
-            const ans = gradingSubmission.answers.find((a) => a.questionId === q.id);
-            return (
-              <div key={q.id} className="bg-card border border-border rounded-xl p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                    {idx + 1}
-                  </span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                      q.type === "mcq"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-accent text-muted-foreground border border-border"
-                    }`}
-                  >
-                    {q.type === "mcq" ? "MCQ" : "Written"} • {q.marks} marks
-                  </span>
-                </div>
-                <p className="text-sm text-foreground mb-2">{q.questionText}</p>
-                {q.questionImage && (
-                  <img
-                    src={q.questionImage}
-                    alt=""
-                    className="h-24 rounded-lg object-contain mb-2 cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => setPreviewImage(q.questionImage!)}
-                  />
-                )}
-
-                {q.type === "mcq" && q.options && (
-                  <div className="space-y-1">
-                    {q.options.map((opt, oIdx) => {
-                      const isCorrect = oIdx === q.correctAnswer;
-                      const isSelected = ans?.selectedOption === oIdx;
-                      let bg = "bg-card";
-                      if (isCorrect) bg = "bg-green-500/10";
-                      if (isSelected && !isCorrect) bg = "bg-red-500/10";
-                      return (
-                        <div key={oIdx} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs ${bg}`}>
-                          {isCorrect && <CheckCircle className="h-3 w-3 text-green-600 dark:text-green-400 shrink-0" />}
-                          {isSelected && !isCorrect && <XCircle className="h-3 w-3 text-destructive shrink-0" />}
-                          {!isCorrect && !isSelected && <span className="w-3" />}
-                          <span className="text-foreground">{opt.text}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {q.type === "written" && (
-                  <div className="mt-2">
-                    {ans?.writtenImageUrl ? (
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1">Student's Answer:</p>
-                        <div
-                          className="relative inline-block group cursor-pointer"
-                          onClick={() => setPreviewImage(ans.writtenImageUrl!)}
-                        >
-                          <img
-                            src={ans.writtenImageUrl}
-                            alt="Written answer"
-                            className="max-h-64 rounded-lg object-contain border border-border"
-                          />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <ZoomIn className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-3">
-                          <label className="text-xs font-medium text-muted-foreground">Marks:</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={q.marks}
-                            value={writtenMarks[q.id] ?? ""}
-                            onChange={(e) =>
-                              setWrittenMarks((prev) => ({ ...prev, [q.id]: Number(e.target.value) }))
-                            }
-                            className="w-20 px-2 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          />
-                          <span className="text-xs text-muted-foreground">/ {q.marks}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic">No answer submitted</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <button
-          onClick={saveGrading}
-          disabled={savingGrade}
-          className="w-full mt-4 py-3 bg-primary text-primary-foreground rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          <Save className="h-4 w-4" /> {savingGrade ? "Saving..." : "Save Grades"}
-        </button>
-
-        <ImagePreviewDialog src={previewImage} onClose={() => setPreviewImage(null)} />
-      </div>
-    );
-  }
 
   // ─── Main View ────────────────────────────────────────────────────────────
   return (
