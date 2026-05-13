@@ -44,9 +44,7 @@ export default function AdminAddExamPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getDocs(collection(db, "courses")).then(snap => {
-      setCourses(snap.docs.map(d => ({ id: d.id, ...d.data() } as Course)));
-    });
+    getCachedCollection<Course>(db, "courses").then(setCourses);
   }, []);
 
   useEffect(() => {
