@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Course } from "@/types";
-import { getCachedDoc } from "@/lib/firestoreCache";
+import { getCachedDoc, getCachedCollection } from "@/lib/firestoreCache";
 import { FolderOpen, Users, Clock, BookOpen, MessageSquare, ExternalLink, Lock, Timer, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { CourseDetailsSkeleton } from "@/components/skeletons/CourseDetailsSkeleton";
 import { FloatingButtons } from "@/components/FloatingButtons";
