@@ -221,6 +221,7 @@ export default function AdminAddExamPage() {
         await addDoc(collection(examDb, "exams"), data);
         toast.success("Exam created");
       }
+      invalidateCache("exams");
       setSuccess(true);
       setTimeout(() => { navigate("/admin/exams"); }, 1000);
     } catch (err: any) { toast.error(err.message); }
