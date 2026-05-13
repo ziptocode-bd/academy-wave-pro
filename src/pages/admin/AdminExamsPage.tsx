@@ -143,7 +143,8 @@ export default function AdminExamsPage() {
         }
       }
       toast.success(`${arr.length} exam(s) imported`);
-      fetchExams(); // import-এর পর fresh fetch দরকার
+      invalidateCache("exams");
+      fetchExams();
     } catch (err: any) {
       toast.error("Import failed: " + err.message);
     }
