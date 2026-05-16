@@ -5,7 +5,7 @@ import { Course, Video } from "@/types";
 import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { toast } from "sonner";
 import { ImageUrlInput } from "@/components/ImageUrlInput";
-import { Film, CheckCircle, Radio } from "lucide-react";
+import { Film, CheckCircle } from "lucide-react";
 
 export default function AdminAddVideoPage() {
   const [courses, setCourses] = useState<Course[]>([]);
