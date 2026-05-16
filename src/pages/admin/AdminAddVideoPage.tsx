@@ -17,7 +17,7 @@ export default function AdminAddVideoPage() {
   const [thumbnail, setThumbnail] = useState("");
   const [videoURL, setVideoURL] = useState("");
   const [pdfURL, setPdfURL] = useState("");
-  const [isLive, setIsLive] = useState(false);
+  
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
