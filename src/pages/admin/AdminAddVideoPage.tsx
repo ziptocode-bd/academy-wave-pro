@@ -61,7 +61,7 @@ export default function AdminAddVideoPage() {
         thumbnail,
         videoURL,
         pdfURL,
-        isLive,
+        
         order: maxOrder + 1,
         createdAt: Timestamp.now(),
       });
