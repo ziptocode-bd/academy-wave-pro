@@ -75,7 +75,6 @@ export interface Video {
   videoURL: string;
   pdfURL: string;
   order: number;
-  isLive?: boolean;
   createdAt: Timestamp;
 }
 
