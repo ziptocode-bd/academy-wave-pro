@@ -74,7 +74,7 @@ export default function AdminAddVideoPage() {
       setVideoURL("");
       setPdfURL("");
       setChapterId("");
-      setIsLive(false);
+      
 
       invalidateCache("videos");
       const freshVideos = await getCachedCollection<Video>(db, "videos");
