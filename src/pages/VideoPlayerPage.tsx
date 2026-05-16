@@ -30,6 +30,8 @@ import {
 import { FloatingButtons } from "@/components/FloatingButtons";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { VideoPlayerSkeleton } from "@/components/skeletons/VideoPlayerSkeleton";
+import { LiveChat } from "@/components/LiveChat";
+import { MessageCircle, ListVideo } from "lucide-react";
 
 declare global {
   interface Window {
@@ -96,9 +98,10 @@ function LiveBadge({ pulse = true }: { pulse?: boolean }) {
 export default function VideoPlayerPage() {
   const { videoId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userDoc } = useAuth();
   const settings = useAppSettings();
   const isMobile = useIsMobile();
+  const isAdmin = userDoc?.role === "admin";
   const [video, setVideo] = useState<Video | null>(null);
   const [relatedVideos, setRelatedVideos] = useState<Video[]>([]);
   const [allChapters, setAllChapters] = useState<
@@ -106,6 +109,8 @@ export default function VideoPlayerPage() {
   >([]);
   const [chapterFilter, setChapterFilter] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [courseInactive, setCourseInactive] = useState(false);
+  const [sideTab, setSideTab] = useState<"chat" | "videos">("chat");
 
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -160,6 +165,11 @@ export default function VideoPlayerPage() {
         try {
           const course = await getCachedDoc<Course>(db, "courses", v.courseId);
           if (!cancelled && course) {
+            if ((course as any).isActive === false) {
+              setCourseInactive(true);
+              setLoading(false);
+              return;
+            }
             const sub = course.subjects?.find((s) => s.subjectId === v.subjectId);
             setAllChapters(sub?.chapters || []);
           }
@@ -401,6 +411,16 @@ export default function VideoPlayerPage() {
     playerRef.current?.seekTo(t, true);
   }, [video?.isLive]);
 
+  if (courseInactive) {
+    return (
+      <div className="p-4 text-center mt-8">
+        <div className="p-6 bg-destructive/10 rounded-lg border border-destructive/20 max-w-md mx-auto">
+          <p className="text-foreground font-medium">Course Expired</p>
+          <p className="text-sm text-muted-foreground mt-1">This course is no longer available.</p>
+        </div>
+      </div>
+    );
+  }
   if (!video && loading) return <VideoPlayerSkeleton />;
   if (!video && !loading)
     return (
@@ -557,9 +577,9 @@ export default function VideoPlayerPage() {
                         e.stopPropagation();
                         cycleSpeed();
                       }}
-                      className="text-white text-xs font-medium px-2 py-0.5 bg-white/20 rounded"
+                      className="text-white text-xs font-medium px-2 py-0.5 bg-white/20 rounded min-w-[3.5rem]"
                     >
-                      {SPEEDS[speedIndex]}x
+                      {SPEEDS[speedIndex] === 1 ? "Normal" : `${SPEEDS[speedIndex]}x`}
                     </button>
                   )}
                   <button
@@ -630,61 +650,111 @@ export default function VideoPlayerPage() {
           </div>
         </div>
 
-        {/* Related videos (mobile) */}
-        <div className="flex-1 overflow-y-auto pb-2 lg:pb-0 p-4 lg:hidden">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-foreground">More Videos</h3>
-            {allChapters.length > 0 && (
-              <ChapterDropdown
-                chapters={allChapters}
-                value={chapterFilter}
-                onChange={setChapterFilter}
-              />
+        {/* Side panel (mobile) */}
+        <div className="flex-1 overflow-hidden lg:hidden flex flex-col p-4 pb-2 lg:pb-0">
+          <SidePanelHeader
+            isLive={isLive}
+            sideTab={sideTab}
+            setSideTab={setSideTab}
+            allChapters={allChapters}
+            chapterFilter={chapterFilter}
+            setChapterFilter={setChapterFilter}
+          />
+          <div className="flex-1 overflow-hidden mt-3">
+            {isLive && sideTab === "chat" ? (
+              <LiveChat videoId={video!.id} isAdmin={isAdmin} />
+            ) : (
+              <div className="h-full overflow-y-auto space-y-2">
+                {(chapterFilter === "All"
+                  ? relatedVideos
+                  : relatedVideos.filter((v) => v.chapterName === chapterFilter)
+                ).map((v) => (
+                  <VideoListItem key={v.id} v={v} videoId={videoId} settings={settings} />
+                ))}
+              </div>
             )}
-          </div>
-          <div className="space-y-2">
-            {(chapterFilter === "All"
-              ? relatedVideos
-              : relatedVideos.filter((v) => v.chapterName === chapterFilter)
-            ).map((v) => (
-              <VideoListItem
-                key={v.id}
-                v={v}
-                videoId={videoId}
-                settings={settings}
-              />
-            ))}
           </div>
         </div>
       </div>
 
-      {/* Related videos (desktop) */}
-      <div className="hidden lg:block lg:w-80 overflow-y-auto h-full">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-foreground">More Videos</h3>
-          {allChapters.length > 0 && (
-            <ChapterDropdown
-              chapters={allChapters}
-              value={chapterFilter}
-              onChange={setChapterFilter}
-            />
+      {/* Side panel (desktop) */}
+      <div className="hidden lg:flex lg:w-80 flex-col h-full">
+        <SidePanelHeader
+          isLive={isLive}
+          sideTab={sideTab}
+          setSideTab={setSideTab}
+          allChapters={allChapters}
+          chapterFilter={chapterFilter}
+          setChapterFilter={setChapterFilter}
+        />
+        <div className="flex-1 overflow-hidden mt-3">
+          {isLive && sideTab === "chat" ? (
+            <LiveChat videoId={video!.id} isAdmin={isAdmin} />
+          ) : (
+            <div className="h-full overflow-y-auto space-y-2">
+              {(chapterFilter === "All"
+                ? relatedVideos
+                : relatedVideos.filter((v) => v.chapterName === chapterFilter)
+              ).map((v) => (
+                <VideoListItem key={v.id} v={v} videoId={videoId} settings={settings} />
+              ))}
+            </div>
           )}
-        </div>
-        <div className="space-y-2">
-          {(chapterFilter === "All"
-            ? relatedVideos
-            : relatedVideos.filter((v) => v.chapterName === chapterFilter)
-          ).map((v) => (
-            <VideoListItem
-              key={v.id}
-              v={v}
-              videoId={videoId}
-              settings={settings}
-            />
-          ))}
         </div>
       </div>
       <FloatingButtons />
+    </div>
+  );
+}
+
+function SidePanelHeader({
+  isLive,
+  sideTab,
+  setSideTab,
+  allChapters,
+  chapterFilter,
+  setChapterFilter,
+}: {
+  isLive: boolean;
+  sideTab: "chat" | "videos";
+  setSideTab: (t: "chat" | "videos") => void;
+  allChapters: { chapterId: string; chapterName: string }[];
+  chapterFilter: string;
+  setChapterFilter: (s: string) => void;
+}) {
+  if (!isLive) {
+    return (
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-foreground">More Videos</h3>
+        {allChapters.length > 0 && (
+          <ChapterDropdown chapters={allChapters} value={chapterFilter} onChange={setChapterFilter} />
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="inline-flex rounded-lg bg-accent p-0.5 border border-border">
+        <button
+          onClick={() => setSideTab("chat")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            sideTab === "chat" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+          }`}
+        >
+          <MessageCircle className="h-3.5 w-3.5" /> Live Chat
+        </button>
+        <button
+          onClick={() => setSideTab("videos")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            sideTab === "videos" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+          }`}
+        >
+          <ListVideo className="h-3.5 w-3.5" /> Videos
+        </button>
+      </div>
+      {sideTab === "videos" && allChapters.length > 0 && (
+        <ChapterDropdown chapters={allChapters} value={chapterFilter} onChange={setChapterFilter} />
+      )}
     </div>
   );
 }
