@@ -5,8 +5,12 @@ import {
   setDoc, Timestamp, runTransaction,
 } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
+import { db } from "@/lib/firebase";
+import { getCachedDoc } from "@/lib/firestoreCache";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam, ExamAnswer, ExamSubmission } from "@/types/exam";
+import { Course } from "@/types";
+import { Lock } from "lucide-react";
 
 import { toast } from "sonner";
 import {
@@ -95,9 +99,9 @@ export default function ExamTakePage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const cameraRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const submittedRef = useRef(false);
-
+  const [courseInactive, setCourseInactive] = useState(false);
   const hasMcqQuestions = true;
 
   const handleSuspiciousAutoSubmit = useCallback(() => {
@@ -139,7 +143,18 @@ export default function ExamTakePage() {
           setCachedExam(examId, examData);           // store to cache
         }
       }
-      if (examData) setExam(examData);
+      if (examData) {
+        setExam(examData);
+        // Block access if course is inactive
+        if (examData.courseId) {
+          const course = await getCachedDoc<Course>(db, "courses", examData.courseId);
+          if (course && (course as any).isActive === false) {
+            setCourseInactive(true);
+            setLoading(false);
+            return;
+          }
+        }
+      }
 
       // 3) Existing submission — session cache first, then query
       if (user) {
@@ -201,12 +216,12 @@ export default function ExamTakePage() {
     };
   }, []);
 
-  // ─── Ranking: user-initiated, cached in state (one-time read) ────────────
-  // User বাটনে click করলে একবার fetch হয়, তারপর myRank set হওয়ায় button হারিয়ে যায়।
-  // Session-এ duplicate read নেই।
+  // ─── Ranking: pre-computed on exam doc to avoid 2500x submission reads ────
+  // First caller after endTime triggers `ensureExamRankings` which queries
+  // submissions once and persists the sorted list on the exam doc. After
+  // that, every other student only pays a single doc read.
   const loadMyRanking = async () => {
     if (!exam || !user || rankLoading) return;
-    // ✅ Session cache — বারবার click করলেও আর Firebase read হবে না
     const cacheKey = `ranking_${exam.id}_${user.uid}`;
     try {
       const cached = sessionStorage.getItem(cacheKey);
@@ -220,18 +235,10 @@ export default function ExamTakePage() {
 
     setRankLoading(true);
     try {
-      // ✅ examId দিয়ে filter — full collection scan নয়
-      const q = query(
-        collection(examDb, "submissions"),
-        where("examId", "==", exam.id)
-      );
-      const snap = await getDocs(q);
-      const subs = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as ExamSubmission))
-        .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
-      const total = subs.length;
-      const idx = subs.findIndex((s) => s.userId === user.uid);
-      const rank = idx >= 0 ? idx + 1 : null;
+      const { ensureExamRankings } = await import("@/lib/examRankings");
+      const { rankings, total } = await ensureExamRankings(exam);
+      const entry = rankings.find((r) => r.userId === user.uid);
+      const rank = entry ? entry.rank : null;
       setTotalParticipants(total);
       setMyRank(rank);
       try {
@@ -241,6 +248,7 @@ export default function ExamTakePage() {
       setRankLoading(false);
     }
   };
+
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -348,6 +356,22 @@ export default function ExamTakePage() {
 
   // ─── Loading / Not Found ──────────────────────────────────────────────────
   if (loading) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>;
+  if (courseInactive) {
+    return (
+      <div className="p-4 max-w-lg mx-auto animate-fade-in">
+        <button onClick={() => navigate("/exams")} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+          <ArrowLeft className="h-4 w-4" /> Back to Exams
+        </button>
+        <div className="bg-card border border-destructive/30 rounded-2xl p-6 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-3">
+            <Lock className="h-7 w-7 text-destructive" />
+          </div>
+          <p className="text-base font-bold text-destructive">Course Expired</p>
+          <p className="text-sm text-muted-foreground mt-1">এই কোর্সটি আর available নেই। পরীক্ষায় অ্যাক্সেস বন্ধ।</p>
+        </div>
+      </div>
+    );
+  }
   if (!exam) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Exam not found</div>;
 
   if (examEntered && !existingSubmission && !started && !submitted) {

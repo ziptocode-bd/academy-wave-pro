@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Exam, ExamSubmission } from "@/types/exam";
+import { Course } from "@/types";
 import { getCachedCollection } from "@/lib/firestoreCache";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Clock, CheckCircle, Timer, Zap, Send, Trophy, BookOpen,
+  Clock, CheckCircle, Timer, Zap, Send, Trophy, BookOpen, Lock, XCircle,
 } from "lucide-react";
 import { FloatingButtons } from "@/components/FloatingButtons";
 
@@ -69,6 +71,7 @@ export default function ExamListPage() {
   const navigate = useNavigate();
   const [exams, setExams] = useState<Exam[]>([]);
   const [examsLoading, setExamsLoading] = useState(true);
+  const [activeCourseExpired, setActiveCourseExpired] = useState(false);
   // Map of examId → whether this user has submitted
   const [submittedIds, setSubmittedIds] = useState<Set<string>>(new Set());
 
@@ -82,6 +85,13 @@ export default function ExamListPage() {
 
     const fetchExams = async () => {
       setExamsLoading(true);
+
+      // ── Check if active course is expired (isActive === false) ────────────
+      const allCourses = await getCachedCollection<Course>(db, "courses");
+      const activeCourse = allCourses.find(c => c.id === userDoc.activeCourseId);
+      const isExpired = activeCourse && (activeCourse as any).isActive === false;
+      setActiveCourseExpired(!!isExpired);
+      if (isExpired) { setExamsLoading(false); return; }
 
       const list = await getCachedCollection<Exam>(
         examDb,
@@ -179,6 +189,28 @@ export default function ExamListPage() {
         <p className="text-muted-foreground text-sm py-8">
           Please select an active course from your profile to view exams.
         </p>
+      </div>
+    );
+  }
+
+  if (activeCourseExpired) {
+    return (
+      <div className="p-4 max-w-2xl mx-auto animate-fade-in">
+        <h1 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+          <BookOpen className="h-5 w-5" /> Exams
+        </h1>
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <Lock className="h-8 w-8 text-destructive" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-bold text-destructive mb-1">Course Expired</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              এই কোর্সটি expired হয়ে গেছে। পরীক্ষায় আর অ্যাক্সেস নেই।
+            </p>
+          </div>
+        </div>
+        <FloatingButtons />
       </div>
     );
   }

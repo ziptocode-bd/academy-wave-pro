@@ -233,9 +233,6 @@ export default function AdminAddExamPage() {
   return (
     <div className="animate-fade-in w-full max-w-2xl mx-auto overflow-x-hidden overflow-y-auto pb-8 px-3 sm:px-4 pt-4" style={{ maxWidth: '100vw' }}>
       <div className="flex items-center gap-2 mb-4">
-        <button onClick={() => navigate("/admin/exams")} className="p-2 hover:bg-accent rounded-lg">
-          <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-        </button>
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <FileText className="h-5 w-5" /> {existingExam ? "Edit Exam" : "Create New Exam"}
         </h2>

@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase";
 import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
 import { Course, Subject, Instructor, DiscussionGroup, Chapter } from "@/types";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, X, ChevronUp, ChevronDown, ChevronLeft, GripVertical, BookOpen, Users, MessageSquare, FileText, Link2, Image } from "lucide-react";
+import { Plus, Edit, Trash2, X, ChevronUp, ChevronDown, ChevronLeft, GripVertical, BookOpen, Users, MessageSquare, FileText, Link2, Image, PowerOff, Power } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -110,6 +110,13 @@ export default function AdminCoursesPage() {
     toast.success("Course deleted"); fetchCourses(true);
   };
 
+  const handleToggleActive = async (c: Course) => {
+    const newValue = (c as any).isActive === false ? true : false;
+    await updateDoc(doc(db, "courses", c.id), { isActive: newValue });
+    toast.success(newValue ? "Course restored — students can now access exams" : "Course expired — exam access blocked for students");
+    fetchCourses(true);
+  };
+
   const moveCourse = async (index: number, direction: "up" | "down") => {
     const swapIndex = direction === "up" ? index - 1 : index + 1;
     if (swapIndex < 0 || swapIndex >= courses.length) return;
@@ -131,9 +138,6 @@ export default function AdminCoursesPage() {
       <div className="animate-fade-in w-full max-w-2xl mx-auto overflow-x-hidden overflow-y-auto pb-8 box-border">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3">
-          <button onClick={closeForm} className="flex items-center gap-1.5 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors">
-            <ChevronLeft className="h-4 w-4" /> Back
-          </button>
           <h2 className="text-lg font-semibold text-foreground">{editCourse ? "Edit Course" : "New Course"}</h2>
         </div>
 
@@ -317,9 +321,56 @@ export default function AdminCoursesPage() {
             <div className="flex-1 min-w-0">
               <p className="font-medium text-foreground text-sm truncate">{c.courseName}</p>
               <p className="text-xs text-muted-foreground mt-0.5">৳{c.price} • {c.subjects?.length || 0} subjects</p>
+              {(c as any).isActive === false && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20 mt-1">
+                  <PowerOff className="h-2.5 w-2.5" /> Expired
+                </span>
+              )}
             </div>
             <div className="flex gap-1 flex-shrink-0">
               <button onClick={() => openEdit(c)} className="p-2 rounded-lg hover:bg-accent transition-colors"><Edit className="h-4 w-4 text-muted-foreground" /></button>
+
+              {/* Expire / Restore toggle */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    className={`p-2 rounded-lg transition-colors ${
+                      (c as any).isActive === false
+                        ? "hover:bg-green-500/10 text-green-600"
+                        : "hover:bg-amber-500/10 text-amber-600"
+                    }`}
+                    title={(c as any).isActive === false ? "Restore Course" : "Expire Course"}
+                  >
+                    {(c as any).isActive === false
+                      ? <Power className="h-4 w-4" />
+                      : <PowerOff className="h-4 w-4" />}
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {(c as any).isActive === false ? "কোর্স Restore করবেন?" : "কোর্স Expire করবেন?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {(c as any).isActive === false
+                        ? `"${c.courseName}" কোর্সটি আবার active করা হবে। students পুনরায় exam access পাবে।`
+                        : `"${c.courseName}" কোর্সটি expired করা হবে। সকল enrolled students-এর exam access বন্ধ হয়ে যাবে।`}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>বাতিল</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleToggleActive(c)}
+                      className={(c as any).isActive === false
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-amber-600 hover:bg-amber-700"}
+                    >
+                      {(c as any).isActive === false ? "হ্যাঁ, Restore করুন" : "হ্যাঁ, Expire করুন"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
               <AlertDialog>
                 <AlertDialogTrigger asChild><button className="p-2 rounded-lg hover:bg-destructive/10 transition-colors"><Trash2 className="h-4 w-4 text-destructive/70" /></button></AlertDialogTrigger>
                 <AlertDialogContent>
