@@ -332,11 +332,25 @@ export default function ExamTakePage() {
     };
 
     try {
-      const docRef = await addDoc(collection(examDb, "submissions"), submission);
-      const resultSub = { id: docRef.id, ...submission } as ExamSubmission;
+      // ✅ Deterministic doc id prevents duplicate submissions and lets future
+      //    reads use a single getDoc (no query, no collection scan).
+      const submissionId = `${exam.id}_${user.uid}`;
+      await setDoc(doc(examDb, "submissions", submissionId), submission);
+      const resultSub = { id: submissionId, ...submission } as ExamSubmission;
 
-      // Session cache update — পরের page load-এ Firebase read হবে না
-      submissionSessionCache.set(`${exam.id}_${user.uid}`, resultSub);
+      submissionSessionCache.set(submissionId, resultSub);
+
+      // Mark this exam as submitted on the user's own doc so future
+      // ExamListPage visits need zero submission reads.
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          submittedExamIds: arrayUnion(exam.id),
+        });
+        // Invalidate cached userDoc so AuthContext refetches next time.
+        try { sessionStorage.removeItem(`userDoc_${user.uid}`); } catch {}
+      } catch (e) {
+        console.warn("Could not update submittedExamIds", e);
+      }
 
       setResult(resultSub);
       setSubmitted(true);
