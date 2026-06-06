@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection, deleteDoc, doc, updateDoc, setDoc, query, where, getDocs,
+  serverTimestamp,
 } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
-import { Exam, ExamSubmission } from "@/types/exam";
+import { Exam, ExamSubmission, ExamRankingEntry } from "@/types/exam";
 import { Course } from "@/types";
 import { toast } from "sonner";
-import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
+import { getCachedCollection, invalidateCache, bumpVersion } from "@/lib/firestoreCache";
 import {
   Trash2, Edit, Eye, Plus, Download, Upload, Trophy,
   FileText, ChevronLeft, ChevronRight, Share2,
@@ -65,6 +66,7 @@ export default function AdminExamsPage() {
   const handleDelete = async (id: string) => {
     await deleteDoc(doc(examDb, "exams", id));
     invalidateCache("exams");
+    await bumpVersion(examDb, "exams");
     toast.success("Exam deleted");
     setExams((prev) => prev.filter((e) => e.id !== id));
     submissionsCache.current.delete(id);
@@ -101,14 +103,39 @@ export default function AdminExamsPage() {
     }
   };
 
-  // ─── Publish toggle: update local state, no re-fetch ─────────────────────
+  // ─── Publish toggle: also pre-compute rankings so students pay 0 reads ────
   const togglePublish = async (exam: Exam) => {
     const newValue = !exam.resultPublished;
-    await updateDoc(doc(examDb, "exams", exam.id), { resultPublished: newValue });
+    const updates: Record<string, any> = { resultPublished: newValue };
+
+    if (newValue) {
+      // Ensure rankings are pre-computed and stored on the exam doc.
+      // This is a single bulk read at publish-time, paid once by the admin.
+      let subs = submissionsCache.current.get(exam.id);
+      if (!subs) {
+        const q = query(collection(examDb, "submissions"), where("examId", "==", exam.id));
+        const snap = await getDocs(q);
+        subs = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as ExamSubmission))
+          .sort((a, b) => b.obtainedMarks - a.obtainedMarks);
+        submissionsCache.current.set(exam.id, subs);
+      }
+      const rankings: ExamRankingEntry[] = subs.map((s, idx) => ({
+        userId: s.userId,
+        obtainedMarks: s.obtainedMarks,
+        rank: idx + 1,
+      }));
+      updates.rankings = rankings;
+      updates.totalParticipants = rankings.length;
+      updates.rankingsComputedAt = serverTimestamp();
+    }
+
+    await updateDoc(doc(examDb, "exams", exam.id), updates);
     invalidateCache("exams");
+    await bumpVersion(examDb, "exams");
     toast.success(newValue ? "Result published" : "Result unpublished");
-    setExams((prev) =>                                                   // ✅ 0 extra reads
-      prev.map((e) => (e.id === exam.id ? { ...e, resultPublished: newValue } : e))
+    setExams((prev) =>
+      prev.map((e) => (e.id === exam.id ? { ...e, ...updates } as Exam : e))
     );
   };
 
@@ -147,6 +174,7 @@ export default function AdminExamsPage() {
       }
       toast.success(`${arr.length} exam(s) imported`);
       invalidateCache("exams");
+      await bumpVersion(examDb, "exams");
       fetchExams();
     } catch (err: any) {
       toast.error("Import failed: " + err.message);

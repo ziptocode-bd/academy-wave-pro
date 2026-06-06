@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { updateDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserDoc, EnrollRequest, Course } from "@/types";
-import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
+import { getCachedCollection, invalidateCache, bumpVersion } from "@/lib/firestoreCache";
 import { toast } from "sonner";
 import {
   Check, X, ChevronLeft, Search, Users, BookOpen,
@@ -127,6 +127,7 @@ export default function AdminUsersPage() {
 
       invalidateCache("users");
       invalidateCache("enrollRequests");
+      await Promise.all([bumpVersion(db, "users"), bumpVersion(db, "enrollRequests")]);
 
       toast.success(`✓ ${courseName} — approved`);
     } catch (e: any) {
@@ -178,6 +179,7 @@ export default function AdminUsersPage() {
 
       invalidateCache("users");
       invalidateCache("enrollRequests");
+      await Promise.all([bumpVersion(db, "users"), bumpVersion(db, "enrollRequests")]);
 
       toast.success(`✗ ${courseName} — rejected`);
     } catch (e: any) {

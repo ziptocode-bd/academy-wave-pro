@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
+import { getCachedCollection, invalidateCache, bumpVersion } from "@/lib/firestoreCache";
 import { Course, Subject, Instructor, DiscussionGroup, Chapter } from "@/types";
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, X, ChevronUp, ChevronDown, ChevronLeft, GripVertical, BookOpen, Users, MessageSquare, FileText, Link2, Image, PowerOff, Power } from "lucide-react";
@@ -100,6 +100,7 @@ export default function AdminCoursesPage() {
         await addDoc(collection(db, "courses"), data);
         toast.success("Course added");
       }
+      await bumpVersion(db, "courses");
       closeForm(); fetchCourses(true);
     } catch (err: any) { toast.error(err.message); }
     setSubmitting(false);
@@ -107,12 +108,14 @@ export default function AdminCoursesPage() {
 
   const handleDelete = async (id: string) => {
     await deleteDoc(doc(db, "courses", id));
+    await bumpVersion(db, "courses");
     toast.success("Course deleted"); fetchCourses(true);
   };
 
   const handleToggleActive = async (c: Course) => {
     const newValue = (c as any).isActive === false ? true : false;
     await updateDoc(doc(db, "courses", c.id), { isActive: newValue });
+    await bumpVersion(db, "courses");
     toast.success(newValue ? "Course restored — students can now access exams" : "Course expired — exam access blocked for students");
     fetchCourses(true);
   };

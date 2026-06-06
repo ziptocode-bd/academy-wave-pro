@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  doc, getDoc, addDoc, collection, getDocs, query, where,
-  setDoc, Timestamp, runTransaction,
+  doc, getDoc, setDoc, updateDoc, arrayUnion,
+  Timestamp,
 } from "firebase/firestore";
 import { examDb } from "@/lib/examFirebase";
 import { db } from "@/lib/firebase";
@@ -156,9 +156,11 @@ export default function ExamTakePage() {
         }
       }
 
-      // 3) Existing submission — session cache first, then query
+      // 3) Existing submission — derived from userDoc.submittedExamIds first
+      //    (0 reads). Only fetch the full submission doc if needed for result UI.
       if (user) {
         const cacheKey = `${examId}_${user.uid}`;
+        const knownSubmitted = (userDoc?.submittedExamIds || []).includes(examId);
         if (submissionSessionCache.has(cacheKey)) {
           const cached = submissionSessionCache.get(cacheKey);
           if (cached) {
@@ -167,24 +169,21 @@ export default function ExamTakePage() {
             setSubmitted(true);
             submittedRef.current = true;
           }
-        } else {
-          // ✅ query দিয়ে শুধু এই user-এর submission — full scan নয়
-          const q = query(
-            collection(examDb, "submissions"),
-            where("examId", "==", examId),
-            where("userId", "==", user.uid)
-          );
-          const subSnap = await getDocs(q);
-          if (!subSnap.empty) {
-            const sub = { id: subSnap.docs[0].id, ...subSnap.docs[0].data() } as ExamSubmission;
+        } else if (knownSubmitted) {
+          // ✅ Deterministic doc id — single getDoc, no full collection scan
+          const subSnap = await getDoc(doc(examDb, "submissions", `${examId}_${user.uid}`));
+          if (subSnap.exists()) {
+            const sub = { id: subSnap.id, ...subSnap.data() } as ExamSubmission;
             submissionSessionCache.set(cacheKey, sub);
             setExistingSubmission(sub);
             setResult(sub);
             setSubmitted(true);
             submittedRef.current = true;
           } else {
-            submissionSessionCache.set(cacheKey, null); // mark as "no submission"
+            submissionSessionCache.set(cacheKey, null);
           }
+        } else {
+          submissionSessionCache.set(cacheKey, null);
         }
       }
 
@@ -333,11 +332,25 @@ export default function ExamTakePage() {
     };
 
     try {
-      const docRef = await addDoc(collection(examDb, "submissions"), submission);
-      const resultSub = { id: docRef.id, ...submission } as ExamSubmission;
+      // ✅ Deterministic doc id prevents duplicate submissions and lets future
+      //    reads use a single getDoc (no query, no collection scan).
+      const submissionId = `${exam.id}_${user.uid}`;
+      await setDoc(doc(examDb, "submissions", submissionId), submission);
+      const resultSub = { id: submissionId, ...submission } as ExamSubmission;
 
-      // Session cache update — পরের page load-এ Firebase read হবে না
-      submissionSessionCache.set(`${exam.id}_${user.uid}`, resultSub);
+      submissionSessionCache.set(submissionId, resultSub);
+
+      // Mark this exam as submitted on the user's own doc so future
+      // ExamListPage visits need zero submission reads.
+      try {
+        await updateDoc(doc(db, "users", user.uid), {
+          submittedExamIds: arrayUnion(exam.id),
+        });
+        // Invalidate cached userDoc so AuthContext refetches next time.
+        try { sessionStorage.removeItem(`userDoc_${user.uid}`); } catch {}
+      } catch (e) {
+        console.warn("Could not update submittedExamIds", e);
+      }
 
       setResult(resultSub);
       setSubmitted(true);
