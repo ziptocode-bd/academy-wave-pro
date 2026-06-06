@@ -25,7 +25,8 @@ service cloud.firestore {
                     && request.resource.data.email is string
                     && request.resource.data.name is string;
 
-      // Student নিজের profile update করতে পারবে কিন্তু role/status বদলাতে পারবে না
+      // Student নিজের profile update করতে পারবে কিন্তু role/status বদলাতে পারবে না।
+      // submittedExamIds field-এ arrayUnion করা যাবে (exam submission এর জন্য)।
       allow update: if (isSelf(userId)
                        && request.resource.data.role   == resource.data.role
                        && request.resource.data.status == resource.data.status)
@@ -74,6 +75,15 @@ service cloud.firestore {
 
     // ── APP SETTINGS (public read, admin write) ──────────
     match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── CACHE VERSIONS (public read, admin write) ────────
+    // Single doc `_meta/versions` is bumped on every admin write so every
+    // student client (free tier, 2500+ users) can invalidate stale local
+    // caches with just 1 read per 5-minute session window.
+    match /_meta/{docId} {
       allow read: if true;
       allow write: if isAdmin();
     }
