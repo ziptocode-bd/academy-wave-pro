@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Course, Video } from "@/types";
-import { getCachedCollection, invalidateCache } from "@/lib/firestoreCache";
+import { getCachedCollection, invalidateCache, bumpVersion } from "@/lib/firestoreCache";
 import { toast } from "sonner";
 import { ImageUrlInput } from "@/components/ImageUrlInput";
 import { Film, CheckCircle } from "lucide-react";
@@ -77,6 +77,7 @@ export default function AdminAddVideoPage() {
       
 
       invalidateCache("videos");
+      await bumpVersion(db, "videos");
       const freshVideos = await getCachedCollection<Video>(db, "videos");
       setVideos(freshVideos);
     } catch (err: any) {
