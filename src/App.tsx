@@ -19,6 +19,7 @@ import AdminUsersPage from "@/pages/admin/AdminUsersPage";
 import AdminCoursesPage from "@/pages/admin/AdminCoursesPage";
 import AdminVideosPage from "@/pages/admin/AdminVideosPage";
 import AdminAddVideoPage from "@/pages/admin/AdminAddVideoPage";
+import AdminAddCoursePage from "@/pages/admin/AdminAddCoursePage";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import AdminExamsPage from "@/pages/admin/AdminExamsPage";
 import AdminAddExamPage from "@/pages/admin/AdminAddExamPage";
@@ -51,12 +52,12 @@ const App = () => (
               <Route path="/admin" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
               <Route path="/admin/users" element={<ProtectedAdminRoute><AdminUsersPage /></ProtectedAdminRoute>} />
               <Route path="/admin/courses" element={<ProtectedAdminRoute><AdminCoursesPage /></ProtectedAdminRoute>} />
+              <Route path="/admin/courses/add" element={<ProtectedAdminRoute><AdminAddCoursePage /></ProtectedAdminRoute>} />
               <Route path="/admin/videos" element={<ProtectedAdminRoute><AdminVideosPage /></ProtectedAdminRoute>} />
               <Route path="/admin/videos/add" element={<ProtectedAdminRoute><AdminAddVideoPage /></ProtectedAdminRoute>} />
               <Route path="/admin/settings" element={<ProtectedAdminRoute><AdminSettingsPage /></ProtectedAdminRoute>} />
               <Route path="/admin/exams" element={<ProtectedAdminRoute><AdminExamsPage /></ProtectedAdminRoute>} />
               <Route path="/admin/exams/add" element={<ProtectedAdminRoute><AdminAddExamPage /></ProtectedAdminRoute>} />
-              <Route path="/admin/courses/add" element={<ProtectedAdminRoute><AdminCoursesPage /></ProtectedAdminRoute>} />
               <Route path="/admin/data" element={<ProtectedAdminRoute><AdminDataPage /></ProtectedAdminRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />

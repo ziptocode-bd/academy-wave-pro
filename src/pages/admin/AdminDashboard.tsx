@@ -218,7 +218,7 @@ export default function AdminDashboard() {
           </p>
           <div className="grid grid-cols-3 gap-3 md:gap-4">
             {[
-              { label: "Add Course", to: "/admin/courses?add=true", icon: BookOpen, color: "text-emerald-500", bg: "bg-emerald-500/10", hoverBorder: "hover:border-emerald-500/30" },
+              { label: "Add Course", to: "/admin/courses/add", icon: BookOpen, color: "text-emerald-500", bg: "bg-emerald-500/10", hoverBorder: "hover:border-emerald-500/30" },
               { label: "Add Video", to: "/admin/videos/add", icon: Video, color: "text-violet-500", bg: "bg-violet-500/10", hoverBorder: "hover:border-violet-500/30" },
               { label: "Add Exam", to: "/admin/exams/add", icon: FileText, color: "text-rose-500", bg: "bg-rose-500/10", hoverBorder: "hover:border-rose-500/30" },
             ].map((card) => (

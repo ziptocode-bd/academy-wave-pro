@@ -1,35 +1,28 @@
 import { useEffect, useState } from "react";
-import { collection, addDoc, updateDoc, deleteDoc, doc, Timestamp, writeBatch } from "firebase/firestore";
+import { Link, useNavigate } from "react-router-dom";
+import { deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Video, Course } from "@/types";
 import { getCachedCollection, invalidateCache, bumpVersion } from "@/lib/firestoreCache";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Film, Filter } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ImageUrlInput } from "@/components/ImageUrlInput";
+import { Plus, Edit, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Search, Film } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AdminVideoListSkeleton } from "@/components/skeletons/AdminSkeleton";
 
 const PAGE_SIZE = 20;
 
 export default function AdminVideosPage() {
+  const navigate = useNavigate();
   const [videos, setVideos] = useState<Video[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editVideo, setEditVideo] = useState<Video | null>(null);
   const [search, setSearch] = useState("");
   const [filterCourseId, setFilterCourseId] = useState("");
   const [filterSubjectId, setFilterSubjectId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-
-  const [courseId, setCourseId] = useState("");
-  const [subjectId, setSubjectId] = useState("");
-  const [chapterId, setChapterId] = useState("");
-  const [title, setTitle] = useState("");
-  const [thumbnail, setThumbnail] = useState("");
-  const [videoURL, setVideoURL] = useState("");
-  const [pdfURL, setPdfURL] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async (forceRefresh = false) => {
     if (forceRefresh) {
@@ -48,56 +41,13 @@ export default function AdminVideosPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const selectedCourse = courses.find((c) => c.id === courseId);
   const filterCourse = courses.find((c) => c.id === filterCourseId);
-  const selectedSubject = selectedCourse?.subjects?.find((s) => s.subjectId === subjectId);
-
-  const resetForm = () => {
-    setCourseId(""); setSubjectId(""); setChapterId(""); setTitle(""); setThumbnail(""); setVideoURL(""); setPdfURL(""); setEditVideo(null);
-  };
-
-  const openAdd = () => { resetForm(); setShowForm(true); };
-
-  const openEdit = (v: Video) => {
-    setEditVideo(v); setCourseId(v.courseId); setSubjectId(v.subjectId); setChapterId(v.chapterId || "");
-    setTitle(v.title); setThumbnail(v.thumbnail); setVideoURL(v.videoURL); setPdfURL(v.pdfURL); setShowForm(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setSubmitting(true);
-    try {
-      const course = courses.find((c) => c.id === courseId);
-      const subject = course?.subjects?.find((s) => s.subjectId === subjectId);
-      const chapter = subject?.chapters?.find((ch) => ch.chapterId === chapterId);
-
-      const sameSubjectVideos = videos.filter(v => v.courseId === courseId && v.subjectId === subjectId);
-      const maxOrder = sameSubjectVideos.length > 0 ? Math.max(...sameSubjectVideos.map(v => v.order || 0)) : -1;
-
-      const data: any = {
-        courseId, courseName: course?.courseName || "", subjectId, subjectName: subject?.subjectName || "",
-        chapterId: chapterId || "", chapterName: chapter?.chapterName || "",
-        title, thumbnail, videoURL, pdfURL, createdAt: Timestamp.now(),
-      };
-      if (editVideo) {
-        data.order = editVideo.order;
-        await updateDoc(doc(db, "videos", editVideo.id), data);
-        toast.success("Video updated");
-      } else {
-        data.order = maxOrder + 1;
-        await addDoc(collection(db, "videos"), data);
-        toast.success("Video added");
-      }
-      await bumpVersion(db, "videos");
-      setShowForm(false); resetForm(); fetchData(true);
-    } catch (err: any) { toast.error(err.message); }
-    setSubmitting(false);
-  };
 
   const handleDelete = async (id: string) => {
     await deleteDoc(doc(db, "videos", id));
     invalidateCache("videos");
     await bumpVersion(db, "videos");
-    setVideos(prev => prev.filter(v => v.id !== id));
+    setVideos((prev) => prev.filter((v) => v.id !== id));
     toast.success("Video deleted");
   };
 
@@ -118,8 +68,8 @@ export default function AdminVideosPage() {
 
     invalidateCache("videos");
     await bumpVersion(db, "videos");
-    setVideos(prev => {
-      const next = prev.map(v => {
+    setVideos((prev) => {
+      const next = prev.map((v) => {
         if (v.id === a.id) return { ...v, order: orderB };
         if (v.id === b.id) return { ...v, order: orderA };
         return v;
@@ -147,85 +97,18 @@ export default function AdminVideosPage() {
 
   if (loading) return <AdminVideoListSkeleton count={5} />;
 
-  // Form view
-  if (showForm) {
-    return (
-      <div className="animate-fade-in w-full max-w-2xl mx-auto overflow-x-hidden overflow-y-auto pb-8" style={{ maxWidth: '100vw' }}>
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3">
-          <button onClick={() => { setShowForm(false); resetForm(); }} className="flex items-center gap-1.5 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors">
-            <ChevronLeft className="h-4 w-4" /> Back
-          </button>
-          <h2 className="text-lg font-semibold text-foreground">{editVideo ? "Edit Video" : "Add Video"}</h2>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-3 sm:px-4 pt-4 space-y-4 overflow-x-hidden">
-          <div className="rounded-xl border border-border bg-card/50 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-accent/30 border-b border-border">
-              <Film className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Video Details</span>
-            </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Course</label>
-                <select value={courseId} onChange={(e) => { setCourseId(e.target.value); setSubjectId(""); setChapterId(""); }} required className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
-                  <option value="">Select Course</option>
-                  {courses.map((c) => <option key={c.id} value={c.id}>{c.courseName}</option>)}
-                </select>
-              </div>
-              {selectedCourse?.subjects?.length ? (
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Subject</label>
-                  <select value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setChapterId(""); }} required className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
-                    <option value="">Select Subject</option>
-                    {selectedCourse.subjects.map((s) => <option key={s.subjectId} value={s.subjectId}>{s.subjectName}</option>)}
-                  </select>
-                </div>
-              ) : null}
-              {selectedSubject?.chapters?.length ? (
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Chapter (Optional)</label>
-                  <select value={chapterId} onChange={(e) => setChapterId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
-                    <option value="">Select Chapter</option>
-                    {selectedSubject.chapters.map((ch) => <option key={ch.chapterId} value={ch.chapterId}>{ch.chapterName}</option>)}
-                  </select>
-                </div>
-              ) : null}
-
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Video Title</label>
-                <input type="text" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
-              </div>
-
-              <ImageUrlInput label="Thumbnail URL" value={thumbnail} onChange={setThumbnail} placeholder="https://i.postimg.cc/..." />
-
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">YouTube Video URL</label>
-                <input type="text" placeholder="https://youtube.com/..." value={videoURL} onChange={(e) => setVideoURL(e.target.value)} required className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">PDF URL (Optional)</label>
-                <input type="text" placeholder="https://..." value={pdfURL} onChange={(e) => setPdfURL(e.target.value)} className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
-              </div>
-            </div>
-          </div>
-
-          <button type="submit" disabled={submitting} className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50 transition-all active:scale-[0.98] shadow-sm">
-            {submitting ? "Saving..." : editVideo ? "Update Video" : "Add Video"}
-          </button>
-        </form>
-      </div>
-    );
-  }
-
   return (
     <div className="p-3 sm:p-4 animate-fade-in max-w-4xl mx-auto overflow-x-hidden">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <Film className="h-5 w-5" /> Videos ({videos.length})
         </h2>
-        <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all active:scale-95 shadow-sm font-medium">
+        <Link
+          to="/admin/videos/add"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-all active:scale-95 shadow-sm font-medium"
+        >
           <Plus className="h-4 w-4" /> Add
-        </button>
+        </Link>
       </div>
 
       <div className="relative mb-3">
@@ -302,9 +185,15 @@ export default function AdminVideosPage() {
                 <p className="text-xs text-muted-foreground truncate">{v.courseName} • {v.subjectName}</p>
               </div>
               <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => openEdit(v)} className="p-2 rounded-lg hover:bg-accent transition-colors"><Edit className="h-4 w-4 text-muted-foreground" /></button>
+                <button onClick={() => navigate(`/admin/videos/add?edit=${v.id}`)} className="p-2 rounded-lg hover:bg-accent transition-colors">
+                  <Edit className="h-4 w-4 text-muted-foreground" />
+                </button>
                 <AlertDialog>
-                  <AlertDialogTrigger asChild><button className="p-2 rounded-lg hover:bg-destructive/10 transition-colors"><Trash2 className="h-4 w-4 text-destructive/70" /></button></AlertDialogTrigger>
+                  <AlertDialogTrigger asChild>
+                    <button className="p-2 rounded-lg hover:bg-destructive/10 transition-colors">
+                      <Trash2 className="h-4 w-4 text-destructive/70" />
+                    </button>
+                  </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>Delete Video</AlertDialogTitle><AlertDialogDescription>Delete "{v.title}"?</AlertDialogDescription></AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(v.id)}>Delete</AlertDialogAction></AlertDialogFooter>
@@ -316,17 +205,14 @@ export default function AdminVideosPage() {
         })}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-4">
-          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
             className="p-2 rounded-lg bg-card border border-border disabled:opacity-30">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="text-sm text-muted-foreground">
-            {currentPage} / {totalPages}
-          </span>
-          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+          <span className="text-sm text-muted-foreground">{currentPage} / {totalPages}</span>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
             className="p-2 rounded-lg bg-card border border-border disabled:opacity-30">
             <ChevronRight className="h-4 w-4" />
           </button>

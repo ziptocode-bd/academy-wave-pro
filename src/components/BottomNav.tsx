@@ -12,7 +12,7 @@ const userTabs = [
 const adminTabs = [
   { to: "/admin", icon: LayoutGrid, label: "Dashboard" },
   { to: "/admin/videos/add", icon: Video, label: "Video" },
-  { to: "/admin/courses", icon: GraduationCap, label: "Course", addParam: true },
+  { to: "/admin/courses/add", icon: GraduationCap, label: "Course" },
   { to: "/admin/exams/add", icon: Timer, label: "Exam" },
 ];
 
