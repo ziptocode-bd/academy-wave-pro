@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { collection, addDoc, updateDoc, doc, getDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Course, Video } from "@/types";
 import { getCachedCollection, invalidateCache, bumpVersion } from "@/lib/firestoreCache";
@@ -8,6 +9,10 @@ import { ImageUrlInput } from "@/components/ImageUrlInput";
 import { Film, CheckCircle } from "lucide-react";
 
 export default function AdminAddVideoPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [videos, setVideos] = useState<Video[]>([]);
   const [courseId, setCourseId] = useState("");
@@ -17,9 +22,11 @@ export default function AdminAddVideoPage() {
   const [thumbnail, setThumbnail] = useState("");
   const [videoURL, setVideoURL] = useState("");
   const [pdfURL, setPdfURL] = useState("");
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(!!editId);
+  const [editVideo, setEditVideo] = useState<Video | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -30,6 +37,24 @@ export default function AdminAddVideoPage() {
       setVideos(videos_);
     });
   }, []);
+
+  useEffect(() => {
+    if (!editId) return;
+    getDoc(doc(db, "videos", editId)).then((snap) => {
+      if (snap.exists()) {
+        const v = { id: snap.id, ...snap.data() } as Video;
+        setEditVideo(v);
+        setCourseId(v.courseId);
+        setSubjectId(v.subjectId);
+        setChapterId(v.chapterId || "");
+        setTitle(v.title);
+        setThumbnail(v.thumbnail);
+        setVideoURL(v.videoURL);
+        setPdfURL(v.pdfURL);
+      }
+      setLoading(false);
+    });
+  }, [editId]);
 
   const selectedCourse = courses.find((c) => c.id === courseId);
   const selectedSubject = selectedCourse?.subjects?.find((s) => s.subjectId === subjectId);
@@ -42,15 +67,7 @@ export default function AdminAddVideoPage() {
       const subject = course?.subjects?.find((s) => s.subjectId === subjectId);
       const chapter = subject?.chapters?.find((ch) => ch.chapterId === chapterId);
 
-      const sameSubjectVideos = videos.filter(
-        (v) => v.courseId === courseId && v.subjectId === subjectId
-      );
-      const maxOrder =
-        sameSubjectVideos.length > 0
-          ? Math.max(...sameSubjectVideos.map((v) => v.order || 0))
-          : -1;
-
-      await addDoc(collection(db, "videos"), {
+      const data: any = {
         courseId,
         courseName: course?.courseName || "",
         subjectId,
@@ -61,30 +78,48 @@ export default function AdminAddVideoPage() {
         thumbnail,
         videoURL,
         pdfURL,
-        
-        order: maxOrder + 1,
         createdAt: Timestamp.now(),
-      });
+      };
 
-      toast.success("Video added successfully!");
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 2000);
-      setTitle("");
-      setThumbnail("");
-      setVideoURL("");
-      setPdfURL("");
-      setChapterId("");
-      
+      if (editVideo) {
+        data.order = editVideo.order;
+        await updateDoc(doc(db, "videos", editVideo.id), data);
+        toast.success("Video updated");
+      } else {
+        const sameSubjectVideos = videos.filter(
+          (v) => v.courseId === courseId && v.subjectId === subjectId
+        );
+        const maxOrder = sameSubjectVideos.length > 0
+          ? Math.max(...sameSubjectVideos.map((v) => v.order || 0))
+          : -1;
+        data.order = maxOrder + 1;
+        await addDoc(collection(db, "videos"), data);
+        toast.success("Video added successfully!");
+      }
 
       invalidateCache("videos");
       await bumpVersion(db, "videos");
-      const freshVideos = await getCachedCollection<Video>(db, "videos");
-      setVideos(freshVideos);
+      setSuccess(true);
+      setTimeout(() => {
+        if (editVideo) {
+          navigate("/admin/videos");
+        } else {
+          setSuccess(false);
+          setTitle("");
+          setThumbnail("");
+          setVideoURL("");
+          setPdfURL("");
+          setChapterId("");
+          getCachedCollection<Video>(db, "videos").then(setVideos);
+        }
+      }, 1000);
     } catch (err: any) {
       toast.error(err.message);
     }
     setSubmitting(false);
   };
+
+  if (loading) return <div className="p-4 text-center text-muted-foreground text-sm py-8">Loading...</div>;
 
   return (
     <div
@@ -92,7 +127,7 @@ export default function AdminAddVideoPage() {
       style={{ maxWidth: "100vw" }}
     >
       <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <Film className="h-5 w-5" /> Quick Add Video
+        <Film className="h-5 w-5" /> {editVideo ? "Edit Video" : "Add Video"}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,57 +137,41 @@ export default function AdminAddVideoPage() {
             <span className="text-sm font-medium text-foreground">Video Details</span>
           </div>
           <div className="p-4 space-y-3">
-            {/* Course */}
             <div>
               <label className="text-xs font-medium text-muted-foreground">Course</label>
               <select
                 value={courseId}
-                onChange={(e) => {
-                  setCourseId(e.target.value);
-                  setSubjectId("");
-                  setChapterId("");
-                }}
+                onChange={(e) => { setCourseId(e.target.value); setSubjectId(""); setChapterId(""); }}
                 required
                 className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
               >
                 <option value="">Select Course</option>
                 {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.courseName}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.courseName}</option>
                 ))}
               </select>
             </div>
 
-            {/* Subject */}
             {selectedCourse?.subjects?.length ? (
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Subject</label>
                 <select
                   value={subjectId}
-                  onChange={(e) => {
-                    setSubjectId(e.target.value);
-                    setChapterId("");
-                  }}
+                  onChange={(e) => { setSubjectId(e.target.value); setChapterId(""); }}
                   required
                   className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
                 >
                   <option value="">Select Subject</option>
                   {selectedCourse.subjects.map((s) => (
-                    <option key={s.subjectId} value={s.subjectId}>
-                      {s.subjectName}
-                    </option>
+                    <option key={s.subjectId} value={s.subjectId}>{s.subjectName}</option>
                   ))}
                 </select>
               </div>
             ) : null}
 
-            {/* Chapter */}
             {selectedSubject?.chapters?.length ? (
               <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Chapter (Optional)
-                </label>
+                <label className="text-xs font-medium text-muted-foreground">Chapter (Optional)</label>
                 <select
                   value={chapterId}
                   onChange={(e) => setChapterId(e.target.value)}
@@ -160,15 +179,12 @@ export default function AdminAddVideoPage() {
                 >
                   <option value="">Select Chapter</option>
                   {selectedSubject.chapters.map((ch) => (
-                    <option key={ch.chapterId} value={ch.chapterId}>
-                      {ch.chapterName}
-                    </option>
+                    <option key={ch.chapterId} value={ch.chapterId}>{ch.chapterName}</option>
                   ))}
                 </select>
               </div>
             ) : null}
 
-            {/* Title */}
             <div>
               <label className="text-xs font-medium text-muted-foreground">Video Title</label>
               <input
@@ -188,7 +204,6 @@ export default function AdminAddVideoPage() {
               placeholder="https://i.postimg.cc/..."
             />
 
-            {/* YouTube URL */}
             <div>
               <label className="text-xs font-medium text-muted-foreground">YouTube Video URL</label>
               <input
@@ -201,7 +216,6 @@ export default function AdminAddVideoPage() {
               />
             </div>
 
-            {/* PDF URL */}
             <div>
               <label className="text-xs font-medium text-muted-foreground">PDF URL (Optional)</label>
               <input
@@ -212,7 +226,6 @@ export default function AdminAddVideoPage() {
                 className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
               />
             </div>
-
           </div>
         </div>
 
@@ -224,13 +237,11 @@ export default function AdminAddVideoPage() {
           }`}
         >
           {success ? (
-            <>
-              <CheckCircle className="h-4 w-4" /> Added!
-            </>
+            <><CheckCircle className="h-4 w-4" /> {editVideo ? "Updated!" : "Added!"}</>
           ) : submitting ? (
-            "Adding..."
+            editVideo ? "Updating..." : "Adding..."
           ) : (
-            "Add Video"
+            editVideo ? "Update Video" : "Add Video"
           )}
         </button>
       </form>
