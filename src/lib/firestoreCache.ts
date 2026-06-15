@@ -130,11 +130,12 @@ async function isStaleVsServer(
   collectionName: string,
   entryTimestamp: number,
 ): Promise<boolean> {
-  const versions = await getVersions(dbInstance);
+  const versions = await getVersions(dbInstance, collectionName);
   const v = versions[collectionName];
   if (!v) return false;
   return v > entryTimestamp;
 }
+
 
 function freshLocally(entry: CacheEntry | null, c: string): boolean {
   return !!entry && Date.now() - entry.timestamp < getCacheTTL(c);
