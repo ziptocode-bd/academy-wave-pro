@@ -65,7 +65,7 @@ function clearOldCache(): void {
 // Admin writes call `bumpVersion`, students read the doc cheaply once per
 // session (5-min mem cache) to know whether their local cache is stale.
 const VERSIONS_DOC_PATH: { col: string; id: string } = { col: "_meta", id: "versions" };
-const VERSION_MEM_TTL = 5 * 60 * 1000; // 5 min — balance freshness vs. reads
+
 const versionCache = new Map<string, { data: Record<string, number>; timestamp: number }>();
 const versionPending = new Map<string, Promise<Record<string, number>>>();
 
