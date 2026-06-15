@@ -15,15 +15,27 @@ interface CacheEntry<T = any> {
 const TTL = {
   courses: 6 * 60 * 60 * 1000,
   videos: 6 * 60 * 60 * 1000,
-  settings: 12 * 60 * 60 * 1000,
+  settings: 2 * 60 * 60 * 1000,           // ⬇ 12h → 2h
   users: 30 * 60 * 1000,
   exams: 6 * 60 * 60 * 1000,
   examQuestions: 12 * 60 * 60 * 1000,
-  submissions: 30 * 60 * 1000,
-  enrollRequests: 30 * 60 * 1000,
+  submissions: 5 * 60 * 1000,             // ⬇ short — admin needs fresh result data
+  enrollRequests: 5 * 60 * 1000,          // ⬇ short — admin approval flow
   examCounters: 10 * 60 * 1000,
   default: 30 * 60 * 1000,
 };
+
+// Per-collection version-check freshness. Hot collections where admin updates
+// must propagate quickly use a shorter window; everything else uses the default.
+const VERSION_TTL_FAST = 60 * 1000;       // 1 min
+const VERSION_TTL_DEFAULT = 5 * 60 * 1000;
+const FAST_COLLECTIONS = new Set([
+  "exams", "settings", "enrollRequests", "users", "submissions",
+]);
+function versionTtlFor(c?: string): number {
+  return c && FAST_COLLECTIONS.has(c) ? VERSION_TTL_FAST : VERSION_TTL_DEFAULT;
+}
+
 
 const memoryCache = new Map<string, CacheEntry>();
 const pendingRequests = new Map<string, Promise<any>>();
