@@ -115,6 +115,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { unsub(); stopSnapshot(); };
   }, []);
 
+  // Re-fetch userDoc when window regains focus, but at most once per 2 min.
+  // Cheap admin-update propagation without a persistent listener cost.
+  useEffect(() => {
+    let lastFetch = 0;
+    const onFocus = async () => {
+      if (!auth.currentUser) return;
+      if (Date.now() - lastFetch < 2 * 60 * 1000) return;
+      lastFetch = Date.now();
+      try {
+        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (snap.exists()) {
+          const data = snap.data() as UserDoc;
+          setUserDoc(data);
+          try { sessionStorage.setItem(`userDoc_${auth.currentUser.uid}`, JSON.stringify({ data, timestamp: Date.now() })); } catch {}
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) onFocus(); });
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+
+
   // Issue + persist a new token on this device, write it to the user doc.
   const issueDeviceToken = async (uid: string) => {
     const token = generateToken();

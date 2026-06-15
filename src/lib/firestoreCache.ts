@@ -15,15 +15,27 @@ interface CacheEntry<T = any> {
 const TTL = {
   courses: 6 * 60 * 60 * 1000,
   videos: 6 * 60 * 60 * 1000,
-  settings: 12 * 60 * 60 * 1000,
+  settings: 2 * 60 * 60 * 1000,           // ⬇ 12h → 2h
   users: 30 * 60 * 1000,
   exams: 6 * 60 * 60 * 1000,
   examQuestions: 12 * 60 * 60 * 1000,
-  submissions: 30 * 60 * 1000,
-  enrollRequests: 30 * 60 * 1000,
+  submissions: 5 * 60 * 1000,             // ⬇ short — admin needs fresh result data
+  enrollRequests: 5 * 60 * 1000,          // ⬇ short — admin approval flow
   examCounters: 10 * 60 * 1000,
   default: 30 * 60 * 1000,
 };
+
+// Per-collection version-check freshness. Hot collections where admin updates
+// must propagate quickly use a shorter window; everything else uses the default.
+const VERSION_TTL_FAST = 60 * 1000;       // 1 min
+const VERSION_TTL_DEFAULT = 5 * 60 * 1000;
+const FAST_COLLECTIONS = new Set([
+  "exams", "settings", "enrollRequests", "users", "submissions",
+]);
+function versionTtlFor(c?: string): number {
+  return c && FAST_COLLECTIONS.has(c) ? VERSION_TTL_FAST : VERSION_TTL_DEFAULT;
+}
+
 
 const memoryCache = new Map<string, CacheEntry>();
 const pendingRequests = new Map<string, Promise<any>>();
@@ -53,7 +65,7 @@ function clearOldCache(): void {
 // Admin writes call `bumpVersion`, students read the doc cheaply once per
 // session (5-min mem cache) to know whether their local cache is stale.
 const VERSIONS_DOC_PATH: { col: string; id: string } = { col: "_meta", id: "versions" };
-const VERSION_MEM_TTL = 5 * 60 * 1000; // 5 min — balance freshness vs. reads
+
 const versionCache = new Map<string, { data: Record<string, number>; timestamp: number }>();
 const versionPending = new Map<string, Promise<Record<string, number>>>();
 
@@ -62,10 +74,11 @@ function dbKey(dbInstance: Firestore): string {
   return (dbInstance as any)?._databaseId?.projectId || "default";
 }
 
-async function getVersions(dbInstance: Firestore): Promise<Record<string, number>> {
+async function getVersions(dbInstance: Firestore, collectionName?: string): Promise<Record<string, number>> {
   const key = dbKey(dbInstance);
   const cached = versionCache.get(key);
-  if (cached && Date.now() - cached.timestamp < VERSION_MEM_TTL) return cached.data;
+  const ttl = versionTtlFor(collectionName);
+  if (cached && Date.now() - cached.timestamp < ttl) return cached.data;
   if (versionPending.has(key)) return versionPending.get(key)!;
 
   const p = (async () => {
@@ -80,7 +93,6 @@ async function getVersions(dbInstance: Firestore): Promise<Record<string, number
       versionCache.set(key, { data, timestamp: Date.now() });
       return data;
     } catch {
-      // Rules block or offline — degrade gracefully (use cache as-is).
       const data = {};
       versionCache.set(key, { data, timestamp: Date.now() });
       return data;
@@ -91,6 +103,7 @@ async function getVersions(dbInstance: Firestore): Promise<Record<string, number
   versionPending.set(key, p);
   return p;
 }
+
 
 /**
  * Call after any admin write to a collection.
@@ -117,11 +130,12 @@ async function isStaleVsServer(
   collectionName: string,
   entryTimestamp: number,
 ): Promise<boolean> {
-  const versions = await getVersions(dbInstance);
+  const versions = await getVersions(dbInstance, collectionName);
   const v = versions[collectionName];
   if (!v) return false;
   return v > entryTimestamp;
 }
+
 
 function freshLocally(entry: CacheEntry | null, c: string): boolean {
   return !!entry && Date.now() - entry.timestamp < getCacheTTL(c);
@@ -171,17 +185,20 @@ export async function getCachedDoc<T>(
   dbInstance: Firestore,
   collectionName: string,
   docId: string,
+  options?: { forceRefresh?: boolean },
 ): Promise<T | null> {
   const cacheKey = `doc_${collectionName}_${docId}`;
 
-  const mem = memoryCache.get(cacheKey);
-  if (freshLocally(mem, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, mem!.timestamp))) {
-    return mem!.data as T;
-  }
-  const ls = getLS<T>(cacheKey);
-  if (freshLocally(ls, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, ls!.timestamp))) {
-    memoryCache.set(cacheKey, ls!);
-    return ls!.data;
+  if (!options?.forceRefresh) {
+    const mem = memoryCache.get(cacheKey);
+    if (freshLocally(mem, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, mem!.timestamp))) {
+      return mem!.data as T;
+    }
+    const ls = getLS<T>(cacheKey);
+    if (freshLocally(ls, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, ls!.timestamp))) {
+      memoryCache.set(cacheKey, ls!);
+      return ls!.data;
+    }
   }
   if (pendingRequests.has(cacheKey)) return pendingRequests.get(cacheKey)!;
 
@@ -201,6 +218,12 @@ export async function getCachedDoc<T>(
   pendingRequests.set(cacheKey, p);
   return p;
 }
+
+/** Force the next version check to hit Firestore (drops the in-memory versions cache). */
+export function forceRefreshVersions(dbInstance: Firestore): void {
+  versionCache.delete(dbKey(dbInstance));
+}
+
 
 /** Local-only invalidation — kept for compatibility, but `bumpVersion` is preferred. */
 export function invalidateCache(collectionName?: string): void {

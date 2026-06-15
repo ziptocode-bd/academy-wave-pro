@@ -134,15 +134,22 @@ export default function ExamTakePage() {
         if (entrySnap.exists()) setExamEntered(true);
       }
 
-      // 2) Exam data — try localStorage cache first (0 reads on hit)
-      let examData = getCachedExam(examId);
-      if (!examData) {
+      // 2) Exam data — bypass cache during live window so admin edits propagate.
+      //    Window: startTime-30min  →  endTime+5min
+      let examData: Exam | null = getCachedExam(examId);
+      const nowMs = Date.now();
+      const inLiveWindow = examData
+        ? (examData.startTime?.toMillis?.() || 0) - 30 * 60 * 1000 <= nowMs &&
+          nowMs <= (examData.endTime?.toMillis?.() || 0) + 5 * 60 * 1000
+        : false;
+      if (!examData || inLiveWindow) {
         const snap = await getDoc(doc(examDb, "exams", examId));
         if (snap.exists()) {
           examData = { id: snap.id, ...snap.data() } as Exam;
-          setCachedExam(examId, examData);           // store to cache
+          setCachedExam(examId, examData);           // refresh cache
         }
       }
+
       if (examData) {
         setExam(examData);
         // Block access if course is inactive
