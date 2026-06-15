@@ -185,17 +185,20 @@ export async function getCachedDoc<T>(
   dbInstance: Firestore,
   collectionName: string,
   docId: string,
+  options?: { forceRefresh?: boolean },
 ): Promise<T | null> {
   const cacheKey = `doc_${collectionName}_${docId}`;
 
-  const mem = memoryCache.get(cacheKey);
-  if (freshLocally(mem, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, mem!.timestamp))) {
-    return mem!.data as T;
-  }
-  const ls = getLS<T>(cacheKey);
-  if (freshLocally(ls, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, ls!.timestamp))) {
-    memoryCache.set(cacheKey, ls!);
-    return ls!.data;
+  if (!options?.forceRefresh) {
+    const mem = memoryCache.get(cacheKey);
+    if (freshLocally(mem, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, mem!.timestamp))) {
+      return mem!.data as T;
+    }
+    const ls = getLS<T>(cacheKey);
+    if (freshLocally(ls, collectionName) && !(await isStaleVsServer(dbInstance, collectionName, ls!.timestamp))) {
+      memoryCache.set(cacheKey, ls!);
+      return ls!.data;
+    }
   }
   if (pendingRequests.has(cacheKey)) return pendingRequests.get(cacheKey)!;
 
@@ -215,6 +218,12 @@ export async function getCachedDoc<T>(
   pendingRequests.set(cacheKey, p);
   return p;
 }
+
+/** Force the next version check to hit Firestore (drops the in-memory versions cache). */
+export function forceRefreshVersions(dbInstance: Firestore): void {
+  versionCache.delete(dbKey(dbInstance));
+}
+
 
 /** Local-only invalidation — kept for compatibility, but `bumpVersion` is preferred. */
 export function invalidateCache(collectionName?: string): void {
