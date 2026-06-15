@@ -74,10 +74,11 @@ function dbKey(dbInstance: Firestore): string {
   return (dbInstance as any)?._databaseId?.projectId || "default";
 }
 
-async function getVersions(dbInstance: Firestore): Promise<Record<string, number>> {
+async function getVersions(dbInstance: Firestore, collectionName?: string): Promise<Record<string, number>> {
   const key = dbKey(dbInstance);
   const cached = versionCache.get(key);
-  if (cached && Date.now() - cached.timestamp < VERSION_MEM_TTL) return cached.data;
+  const ttl = versionTtlFor(collectionName);
+  if (cached && Date.now() - cached.timestamp < ttl) return cached.data;
   if (versionPending.has(key)) return versionPending.get(key)!;
 
   const p = (async () => {
@@ -92,7 +93,6 @@ async function getVersions(dbInstance: Firestore): Promise<Record<string, number
       versionCache.set(key, { data, timestamp: Date.now() });
       return data;
     } catch {
-      // Rules block or offline — degrade gracefully (use cache as-is).
       const data = {};
       versionCache.set(key, { data, timestamp: Date.now() });
       return data;
@@ -103,6 +103,7 @@ async function getVersions(dbInstance: Firestore): Promise<Record<string, number
   versionPending.set(key, p);
   return p;
 }
+
 
 /**
  * Call after any admin write to a collection.
