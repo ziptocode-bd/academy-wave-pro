@@ -242,7 +242,7 @@ export default function AdminUsersPage() {
           <span className="text-sm font-normal text-muted-foreground">({students.length})</span>
         </h2>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData({ force: true })}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg border border-border bg-card"
         >
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
