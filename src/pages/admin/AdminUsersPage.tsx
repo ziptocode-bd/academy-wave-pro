@@ -62,10 +62,16 @@ export default function AdminUsersPage() {
 
   // ── fetch ──────────────────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async (silent = false) => {
+  const fetchData = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    const { silent = false, force = false } = opts ?? {};
     if (!silent) setLoading(true);
-    invalidateCache("users");
-    invalidateCache("enrollRequests");
+    // Only blow away the cache when the admin explicitly hits "Refresh".
+    // Otherwise, version-check (1-min TTL for `users`/`enrollRequests`) keeps data fresh
+    // while serving cached docs — saves ~2500 reads per navigation.
+    if (force) {
+      invalidateCache("users");
+      invalidateCache("enrollRequests");
+    }
     try {
       const [usersData, requestsData, coursesData] = await Promise.all([
         getCachedCollection<UserWithId>(db, "users"),
@@ -236,7 +242,7 @@ export default function AdminUsersPage() {
           <span className="text-sm font-normal text-muted-foreground">({students.length})</span>
         </h2>
         <button
-          onClick={() => fetchData()}
+          onClick={() => fetchData({ force: true })}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg border border-border bg-card"
         >
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
