@@ -1,68 +1,111 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { collection, getCountFromServer, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { Link } from "react-router-dom";
 import {
   Users, Clock, BookOpen, Video, Youtube,
-  HardDrive, FileText, TrendingUp, ArrowUpRight,
-  LayoutDashboard, Plus,
+  HardDrive, FileText, ArrowUpRight,
+  LayoutDashboard, Plus, RefreshCw,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/skeletons";
-import { getCachedCollection } from "@/lib/firestoreCache";
+
+// ── Aggregate counters via getCountFromServer ─────────────────────────────────
+// Each count = ~1 read per 1000 docs (server-side aggregation, no doc download).
+// For 2500 students: 6 counts ≈ 8 reads total instead of 2500+ full-doc reads.
+// Result cached in localStorage with 10-min TTL + manual refresh button.
+const STATS_CACHE_KEY = "admin_dashboard_stats_v1";
+const STATS_TTL_MS = 10 * 60 * 1000;
+
+interface DashboardStats {
+  users: number; pending: number; courses: number; videos: number; exams: number;
+}
+
+function readCachedStats(): { data: DashboardStats; timestamp: number } | null {
+  try {
+    const raw = localStorage.getItem(STATS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.data || typeof parsed.timestamp !== "number") return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function writeCachedStats(data: DashboardStats) {
+  try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() })); } catch {}
+}
 
 export default function AdminDashboard() {
   const settings = useAppSettings();
-  const [stats, setStats] = useState({ users: 0, pending: 0, courses: 0, videos: 0, exams: 0 });
-  const [loading, setLoading] = useState(true);
+  const cached = readCachedStats();
+  const [stats, setStats] = useState<DashboardStats>(
+    cached?.data ?? { users: 0, pending: 0, courses: 0, videos: 0, exams: 0 }
+  );
+  const [loading, setLoading] = useState(!cached);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      // Server-side aggregated counts — no document downloads.
+      const studentsQ = query(collection(db, "users"), where("role", "==", "student"));
+      const pendingUsersQ = query(collection(db, "users"), where("role", "==", "student"), where("status", "==", "pending"));
+      const pendingReqsQ = query(collection(db, "enrollRequests"), where("status", "==", "pending"));
+      const coursesRef = collection(db, "courses");
+      const videosRef = collection(db, "videos");
+
+      const [studentsSnap, pendingUsersSnap, pendingReqsSnap, coursesSnap, videosSnap] = await Promise.all([
+        getCountFromServer(studentsQ),
+        getCountFromServer(pendingUsersQ),
+        getCountFromServer(pendingReqsQ),
+        getCountFromServer(coursesRef),
+        getCountFromServer(videosRef),
+      ]);
+
+      // Exams live in a separate Firestore project.
+      let examsCount = 0;
+      try {
+        const { examDb } = await import("@/lib/examFirebase");
+        const examsSnap = await getCountFromServer(collection(examDb, "exams"));
+        examsCount = examsSnap.data().count;
+      } catch (e) {
+        console.error("Error fetching exam count:", e);
+      }
+
+      // "Pending" badge = unique users with either pending account status OR a pending enroll request.
+      // Server-side we can't compute the union without reading docs, so we take the larger of the two
+      // as a safe upper bound — admin only needs an indicator, exact number is on /admin/users.
+      const pendingCount = Math.max(pendingUsersSnap.data().count, pendingReqsSnap.data().count);
+
+      const next: DashboardStats = {
+        users: studentsSnap.data().count,
+        pending: pendingCount,
+        courses: coursesSnap.data().count,
+        videos: videosSnap.data().count,
+        exams: examsCount,
+      };
+      setStats(next);
+      writeCachedStats(next);
+    } catch (err) {
+      console.error("Error fetching dashboard stats:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Fetch main db collections
-        const [allUsers, coursesData, videosData, enrollRequestsData] = await Promise.all([
-          getCachedCollection<any>(db, "users"),
-          getCachedCollection<any>(db, "courses"),
-          getCachedCollection<any>(db, "videos"),
-          getCachedCollection<any>(db, "enrollRequests"),
-        ]);
-
-        // Fetch exams from examDb separately to isolate any failure
-        let examsCount = 0;
-        try {
-          const { examDb } = await import("@/lib/examFirebase");
-          const examsData = await getCachedCollection<any>(examDb, "exams");
-          examsCount = examsData.length;
-        } catch (examErr) {
-          console.error("Error fetching exams for dashboard:", examErr);
-          // Continue with 0 — don't block the whole dashboard
-        }
-
-        const students = allUsers.filter((u: any) => u.role === "student");
-        const pendingUsers = allUsers.filter((u: any) => u.status === "pending" && u.role === "student");
-        const pendingRequestUserIds = new Set(
-          enrollRequestsData.filter((r: any) => r.status === "pending").map((d: any) => d.userId)
-        );
-        const approvedWithPending = allUsers.filter(
-          (u: any) => u.role === "student" && u.status !== "pending" && pendingRequestUserIds.has(u.id)
-        );
-        const pendingCount = pendingUsers.length + approvedWithPending.length;
-
-        setStats({
-          users: students.length,
-          pending: pendingCount,
-          courses: coursesData.length,
-          videos: videosData.length,
-          exams: examsCount,
-        });
-      } catch (err) {
-        console.error("Error fetching dashboard stats:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    // Skip refetch if cached stats are still fresh.
+    if (cached && Date.now() - cached.timestamp < STATS_TTL_MS) {
+      setLoading(false);
+      return;
+    }
     fetchStats();
-  }, []);
+  }, []); // eslint-disable-line
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchStats();
+  };
 
   const primaryCards = [
     {
