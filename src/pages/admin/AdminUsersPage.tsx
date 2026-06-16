@@ -62,10 +62,16 @@ export default function AdminUsersPage() {
 
   // ── fetch ──────────────────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async (silent = false) => {
+  const fetchData = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    const { silent = false, force = false } = opts ?? {};
     if (!silent) setLoading(true);
-    invalidateCache("users");
-    invalidateCache("enrollRequests");
+    // Only blow away the cache when the admin explicitly hits "Refresh".
+    // Otherwise, version-check (1-min TTL for `users`/`enrollRequests`) keeps data fresh
+    // while serving cached docs — saves ~2500 reads per navigation.
+    if (force) {
+      invalidateCache("users");
+      invalidateCache("enrollRequests");
+    }
     try {
       const [usersData, requestsData, coursesData] = await Promise.all([
         getCachedCollection<UserWithId>(db, "users"),
