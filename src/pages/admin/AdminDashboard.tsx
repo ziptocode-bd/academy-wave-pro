@@ -170,17 +170,28 @@ export default function AdminDashboard() {
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 space-y-6 lg:space-y-8">
 
         {/* ── Header ── */}
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
-            <LayoutDashboard className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+              <LayoutDashboard className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-foreground leading-tight">
+                Dashboard
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, Admin</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-foreground leading-tight">
-              Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, Admin</p>
-          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg border border-border bg-card disabled:opacity-50 shrink-0"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
         </div>
+
 
         {/* ── Primary Stats ── */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-2">
