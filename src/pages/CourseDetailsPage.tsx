@@ -66,6 +66,32 @@ export default function CourseDetailsPage() {
 
   return (
     <div className="animate-fade-in">
+      <Seo
+        title={`${course.courseName} — Darpan Academy`}
+        description={`${course.courseName} — দর্পণ একাডেমির অনলাইন কোর্স। মূল্য ৳${course.price}। এখনই এনরোল করুন।`}
+        path={`/course/${courseId}`}
+        image={course.thumbnail}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": course.courseName,
+          "description": `${course.courseName} — Darpan Academy online course.`,
+          "provider": {
+            "@type": "EducationalOrganization",
+            "name": "Darpan Academy",
+            "sameAs": "https://darpan-academy.netlify.app/",
+          },
+          "image": course.thumbnail,
+          "offers": {
+            "@type": "Offer",
+            "price": course.price,
+            "priceCurrency": "BDT",
+            "availability": (course as any).isActive === false ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+            "url": `https://darpan-academy.netlify.app/course/${courseId}`,
+          },
+          "inLanguage": "bn",
+        }}
+      />
       <div className="max-w-2xl mx-auto">
         {/* Thumbnail - always on top */}
         {course.thumbnail ? (
