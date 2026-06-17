@@ -1,164 +1,150 @@
-import { useEffect, useState, useCallback } from "react";
-import { collection, getCountFromServer, query, where } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { useAppSettings } from "@/contexts/AppSettingsContext";
 import { Link } from "react-router-dom";
 import {
   Users, Clock, BookOpen, Video, Youtube,
   HardDrive, FileText, ArrowUpRight,
-  LayoutDashboard, Plus, RefreshCw,
+  LayoutDashboard, Plus,
 } from "lucide-react";
 import { AdminDashboardSkeleton } from "@/components/skeletons";
-
-// ── Aggregate counters via getCountFromServer ─────────────────────────────────
-// Each count = ~1 read per 1000 docs (server-side aggregation, no doc download).
-// For 2500 students: 6 counts ≈ 8 reads total instead of 2500+ full-doc reads.
-// Result cached in localStorage with 10-min TTL + manual refresh button.
-const STATS_CACHE_KEY = "admin_dashboard_stats_v1";
-const STATS_TTL_MS = 10 * 60 * 1000;
-
-interface DashboardStats {
-  users: number; pending: number; courses: number; videos: number; exams: number;
-}
-
-function readCachedStats(): { data: DashboardStats; timestamp: number } | null {
-  try {
-    const raw = localStorage.getItem(STATS_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.data || typeof parsed.timestamp !== "number") return null;
-    return parsed;
-  } catch { return null; }
-}
-
-function writeCachedStats(data: DashboardStats) {
-  try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() })); } catch {}
-}
+import { getCachedCollection } from "@/lib/firestoreCache";
+import { getStats, initStats } from "@/lib/statsUtils";
 
 export default function AdminDashboard() {
   const settings = useAppSettings();
-  const cached = readCachedStats();
-  const [stats, setStats] = useState<DashboardStats>(
-    cached?.data ?? { users: 0, pending: 0, courses: 0, videos: 0, exams: 0 }
-  );
-  const [loading, setLoading] = useState(!cached);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      // Server-side aggregated counts — no document downloads.
-      const studentsQ = query(collection(db, "users"), where("role", "==", "student"));
-      const pendingUsersQ = query(collection(db, "users"), where("role", "==", "student"), where("status", "==", "pending"));
-      const pendingReqsQ = query(collection(db, "enrollRequests"), where("status", "==", "pending"));
-      const coursesRef = collection(db, "courses");
-      const videosRef = collection(db, "videos");
-
-      const [studentsSnap, pendingUsersSnap, pendingReqsSnap, coursesSnap, videosSnap] = await Promise.all([
-        getCountFromServer(studentsQ),
-        getCountFromServer(pendingUsersQ),
-        getCountFromServer(pendingReqsQ),
-        getCountFromServer(coursesRef),
-        getCountFromServer(videosRef),
-      ]);
-
-      // Exams live in a separate Firestore project.
-      let examsCount = 0;
-      try {
-        const { examDb } = await import("@/lib/examFirebase");
-        const examsSnap = await getCountFromServer(collection(examDb, "exams"));
-        examsCount = examsSnap.data().count;
-      } catch (e) {
-        console.error("Error fetching exam count:", e);
-      }
-
-      // "Pending" badge = unique users with either pending account status OR a pending enroll request.
-      // Server-side we can't compute the union without reading docs, so we take the larger of the two
-      // as a safe upper bound — admin only needs an indicator, exact number is on /admin/users.
-      const pendingCount = Math.max(pendingUsersSnap.data().count, pendingReqsSnap.data().count);
-
-      const next: DashboardStats = {
-        users: studentsSnap.data().count,
-        pending: pendingCount,
-        courses: coursesSnap.data().count,
-        videos: videosSnap.data().count,
-        exams: examsCount,
-      };
-      setStats(next);
-      writeCachedStats(next);
-    } catch (err) {
-      console.error("Error fetching dashboard stats:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const [stats, setStats] = useState({ users: 0, pending: 0, courses: 0, videos: 0, exams: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Skip refetch if cached stats are still fresh.
-    if (cached && Date.now() - cached.timestamp < STATS_TTL_MS) {
-      setLoading(false);
-      return;
-    }
-    fetchStats();
-  }, []); // eslint-disable-line
+    const fetchStats = async () => {
+      try {
+        // ── Fast path: single doc read ─────────────────────────────────────
+        const cached = await getStats(db);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
+        if (cached) {
+          setStats({
+            users  : cached.totalStudents,
+            pending: cached.pendingCount,
+            courses: cached.totalCourses,
+            videos : cached.totalVideos,
+            exams  : cached.totalExams,
+          });
+          setLoading(false);
+          return;                    // ← 1 Firestore read total, done
+        }
+
+        // ── Slow path (first ever run): full collection fetch → seed doc ───
+        const [allUsers, coursesData, videosData, enrollRequestsData] = await Promise.all([
+          getCachedCollection<any>(db, "users"),
+          getCachedCollection<any>(db, "courses"),
+          getCachedCollection<any>(db, "videos"),
+          getCachedCollection<any>(db, "enrollRequests"),
+        ]);
+
+        let examsCount = 0;
+        try {
+          const { examDb } = await import("@/lib/examFirebase");
+          const examsData = await getCachedCollection<any>(examDb, "exams");
+          examsCount = examsData.length;
+        } catch (examErr) {
+          console.error("Error fetching exams for dashboard:", examErr);
+        }
+
+        const students = allUsers.filter((u: any) => u.role === "student");
+        const pendingRequestUserIds = new Set(
+          enrollRequestsData
+            .filter((r: any) => r.status === "pending")
+            .map((d: any) => d.userId),
+        );
+        const pendingUsers = students.filter((u: any) => u.status === "pending");
+        const approvedWithPending = students.filter(
+          (u: any) => u.status !== "pending" && pendingRequestUserIds.has(u.id),
+        );
+        const pendingCount = pendingUsers.length + approvedWithPending.length;
+
+        const derived = {
+          users  : students.length,
+          pending: pendingCount,
+          courses: coursesData.length,
+          videos : videosData.length,
+          exams  : examsCount,
+        };
+
+        setStats(derived);
+
+        // Seed the stats doc so future loads hit the fast path
+        initStats(db, {
+          totalStudents: derived.users,
+          pendingCount : derived.pending,
+          totalCourses : derived.courses,
+          totalVideos  : derived.videos,
+          totalExams   : derived.exams,
+        });
+      } catch (err) {
+        console.error("Error fetching dashboard stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchStats();
-  };
+  }, []);
+
+  // ─── Card definitions ─────────────────────────────────────────────────────
 
   const primaryCards = [
     {
-      label: "Total Students",
-      value: stats.users,
-      icon: Users,
-      to: "/admin/users",
-      color: "text-blue-500",
-      bg: "bg-blue-500/10",
-      border: "border-blue-500/20",
+      label      : "Total Students",
+      value      : stats.users,
+      icon       : Users,
+      to         : "/admin/users",
+      color      : "text-blue-500",
+      bg         : "bg-blue-500/10",
+      border     : "border-blue-500/20",
       hoverBorder: "hover:border-blue-500/40",
-      hoverBg: "hover:bg-blue-500/5",
+      hoverBg    : "hover:bg-blue-500/5",
     },
     {
-      label: "Pending Approvals",
-      value: stats.pending,
-      icon: Clock,
-      to: "/admin/users?status=pending",
-      color: "text-amber-500",
-      bg: "bg-amber-500/10",
-      border: "border-amber-500/20",
+      label      : "Pending Approvals",
+      value      : stats.pending,
+      icon       : Clock,
+      to         : "/admin/users?status=pending",
+      color      : "text-amber-500",
+      bg         : "bg-amber-500/10",
+      border     : "border-amber-500/20",
       hoverBorder: "hover:border-amber-500/40",
-      hoverBg: "hover:bg-amber-500/5",
-      highlight: stats.pending > 0,
+      hoverBg    : "hover:bg-amber-500/5",
+      highlight  : stats.pending > 0,
     },
   ];
 
   const secondaryCards = [
     {
-      label: "Courses",
-      value: stats.courses,
-      icon: BookOpen,
-      to: "/admin/courses",
-      color: "text-emerald-500",
-      bg: "bg-emerald-500/10",
+      label      : "Courses",
+      value      : stats.courses,
+      icon       : BookOpen,
+      to         : "/admin/courses",
+      color      : "text-emerald-500",
+      bg         : "bg-emerald-500/10",
       hoverBorder: "hover:border-emerald-500/30",
     },
     {
-      label: "Videos",
-      value: stats.videos,
-      icon: Video,
-      to: "/admin/videos",
-      color: "text-violet-500",
-      bg: "bg-violet-500/10",
+      label      : "Videos",
+      value      : stats.videos,
+      icon       : Video,
+      to         : "/admin/videos",
+      color      : "text-violet-500",
+      bg         : "bg-violet-500/10",
       hoverBorder: "hover:border-violet-500/30",
     },
     {
-      label: "Exams",
-      value: stats.exams,
-      icon: FileText,
-      to: "/admin/exams",
-      color: "text-rose-500",
-      bg: "bg-rose-500/10",
+      label      : "Exams",
+      value      : stats.exams,
+      icon       : FileText,
+      to         : "/admin/exams",
+      color      : "text-rose-500",
+      bg         : "bg-rose-500/10",
       hoverBorder: "hover:border-rose-500/30",
     },
   ];
@@ -170,31 +156,20 @@ export default function AdminDashboard() {
       <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 space-y-6 lg:space-y-8">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
-              <LayoutDashboard className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-foreground leading-tight">
-                Dashboard
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, Admin</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+            <LayoutDashboard className="h-5 w-5 text-primary" />
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-2.5 py-1.5 rounded-lg border border-border bg-card disabled:opacity-50 shrink-0"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
+          <div>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold text-foreground leading-tight">
+              Dashboard
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Welcome back, Admin</p>
+          </div>
         </div>
 
-
         {/* ── Primary Stats ── */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {primaryCards.map((card) => (
             <Link
               key={card.label}
@@ -273,8 +248,8 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-3 gap-3 md:gap-4">
             {[
               { label: "Add Course", to: "/admin/courses/add", icon: BookOpen, color: "text-emerald-500", bg: "bg-emerald-500/10", hoverBorder: "hover:border-emerald-500/30" },
-              { label: "Add Video", to: "/admin/videos/add", icon: Video, color: "text-violet-500", bg: "bg-violet-500/10", hoverBorder: "hover:border-violet-500/30" },
-              { label: "Add Exam", to: "/admin/exams/add", icon: FileText, color: "text-rose-500", bg: "bg-rose-500/10", hoverBorder: "hover:border-rose-500/30" },
+              { label: "Add Video",  to: "/admin/videos/add",  icon: Video,    color: "text-violet-500",  bg: "bg-violet-500/10",  hoverBorder: "hover:border-violet-500/30" },
+              { label: "Add Exam",   to: "/admin/exams/add",   icon: FileText, color: "text-rose-500",    bg: "bg-rose-500/10",    hoverBorder: "hover:border-rose-500/30" },
             ].map((card) => (
               <Link
                 key={card.label}
