@@ -287,7 +287,7 @@ export async function getPaginatedCollection<T extends { id: string }>(
   const pageDocs = snap.docs.slice(0, pageSize);
   return {
     data   : pageDocs.map(d => ({ id: d.id, ...d.data() } as T)),
-    lastDoc: pageDocs.at(-1) ?? null,
+    lastDoc: pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null,
     hasMore,
   };
 }
