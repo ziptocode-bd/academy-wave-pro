@@ -8,6 +8,7 @@ import { getCachedDoc, getCachedCollection } from "@/lib/firestoreCache";
 import { FolderOpen, Users, Clock, BookOpen, MessageSquare, ExternalLink, Lock, Timer, Calendar, ChevronDown, ChevronUp } from "lucide-react";
 import { CourseDetailsSkeleton } from "@/components/skeletons";
 import { FloatingButtons } from "@/components/FloatingButtons";
+import { Seo } from "@/components/Seo";
 
 export default function CourseDetailsPage() {
   const { courseId } = useParams();
