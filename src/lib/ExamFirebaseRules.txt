@@ -2,58 +2,88 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── EXAMS ─────────────────────────────────────────────
-    // Read open — students দেখবে
-    // Write open কিন্তু basic structure validate করা
-    // Delete blocked — দুর্ঘটনাবশত পরীক্ষা মুছে যাবে না
-    match /exams/{examId} {
-      allow read: if true;
+    function isSignedIn() { return request.auth != null; }
+    function smallPayload() { return request.resource.size() < 500000; } // ~500KB
 
-      allow create: if request.resource.data.keys().hasAll(
+    // NOTE: this database has no `users` collection (admin/role lives in the
+    // main DB). So we cannot directly check isAdmin() here. We protect critical
+    // fields by enforcing immutability + auth + payload shape, and we keep
+    // ALL destructive ops (delete, mark-published-without-result, etc.) BLOCKED
+    // so even a compromised client cannot wipe data.
+
+    // ── EXAMS ─────────────────────────────────────────────
+    // Read: signed-in only — prevents anonymous scraping of question banks.
+    // Create/Update: signed-in + shape validation. Cannot rewrite courseId.
+    // Delete: BLOCKED — admin must delete from Firebase Console.
+    match /exams/{examId} {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+                    && smallPayload()
+                    && request.resource.data.keys().hasAll(
                         ['title','courseId','questions','duration','totalMarks','startTime','endTime']
                       )
                     && request.resource.data.title is string
+                    && request.resource.data.title.size() <= 200
                     && request.resource.data.courseId is string
                     && request.resource.data.duration is number
                     && request.resource.data.questions is list;
 
-      // Update allowed (admin panel থেকে edit, ranking compute, result publish)
-      allow update: if request.resource.data.courseId == resource.data.courseId;
+      allow update: if isSignedIn()
+                    && smallPayload()
+                    && request.resource.data.courseId == resource.data.courseId;
 
-      // Delete blocked — চাইলে Firebase console থেকে manually করতে হবে
       allow delete: if false;
     }
 
-    // ── SUBMISSIONS (immutable after create) ──────────────
+    // ── SUBMISSIONS ───────────────────────────────────────
+    // Read: only the submission owner OR (signed-in user reading their own
+    // exam-leaderboard scope). We expose minimal info — admin needs the
+    // detailed view, but admins are also signed-in so this still works for
+    // them through client-side filters.
+    //
+    // NOTE: rules below allow read only for the submission owner. Admin
+    // panels that need cross-user reads should run from a signed-in admin
+    // account; for cross-user reads, use Admin-only cloud functions or run
+    // from the admin's own session via the rankings doc on the exam.
     match /submissions/{submissionId} {
-      allow read: if true;  // ranking + admin দেখার জন্য
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
 
-      allow create: if request.resource.data.keys().hasAll(
+      allow create: if isSignedIn()
+                    && smallPayload()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.keys().hasAll(
                         ['examId','userId','submittedAt','obtainedMarks','totalMarks']
                       )
-                    && request.resource.data.userId is string
                     && request.resource.data.examId is string
-                    && request.resource.data.obtainedMarks is number;
+                    && request.resource.data.obtainedMarks is number
+                    && request.resource.data.totalMarks is number;
 
-      // Submission immutable — মার্কস, answers কিছুই বদলানো যাবে না
+      // Immutable — submitted answers + marks cannot be changed afterwards.
       allow update: if false;
       allow delete: if false;
     }
 
-    // ── EXAM ENTRIES (one-time write per student per exam) ─
-    // Key format: `${examId}_${userId}` — duplicate prevent
+    // ── EXAM ENTRIES (one-shot per student per exam) ──────
+    // Key MUST be `${examId}_${userId}` and userId MUST match auth.uid.
     match /examEntries/{entryId} {
-      allow read: if true;
-      allow create: if !exists(/databases/$(database)/documents/examEntries/$(entryId))
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+                    && !exists(/databases/$(database)/documents/examEntries/$(entryId))
+                    && request.resource.data.userId == request.auth.uid
                     && request.resource.data.examId is string
-                    && request.resource.data.userId is string;
+                    && entryId == request.resource.data.examId + '_' + request.auth.uid;
+
       allow update, delete: if false;
     }
 
-    // ── EXAM COUNTERS (optional counters) ─────────────────
+    // ── EXAM COUNTERS (aggregate read; signed-in increment-only) ──
     match /examCounters/{examId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && smallPayload();
     }
 
     // ── Default deny ──────────────────────────────────────

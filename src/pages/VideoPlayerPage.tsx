@@ -213,6 +213,7 @@ export default function VideoPlayerPage() {
 
       playerRef.current = new window.YT.Player(el, {
         videoId: ytId,
+        host: "https://www.youtube-nocookie.com",
         playerVars: {
           autoplay: 1,
           controls: 0,
@@ -223,7 +224,10 @@ export default function VideoPlayerPage() {
           fs: 0,
           disablekb: 1,
           playsinline: 1,
+          cc_load_policy: 0,
+          enablejsapi: 1,
           origin: window.location.origin,
+          widget_referrer: window.location.origin,
         },
         events: {
           onReady: (e: any) => {
