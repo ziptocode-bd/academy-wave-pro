@@ -14,52 +14,74 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
     }
+    // basic size guard against abuse / bloat writes
+    function smallPayload() {
+      return request.resource.size() < 200000; // ~200KB
+    }
 
     // ── USERS ──────────────────────────────────────────────
+    // Read: self or admin only. NEVER public.
+    // Update: self can edit own profile but cannot change role/status/email/createdAt/enrolledCourses.
     match /users/{userId} {
       allow read: if isSelf(userId) || isAdmin();
 
       allow create: if isSelf(userId)
+                    && smallPayload()
                     && request.resource.data.role == 'student'
                     && request.resource.data.status == 'pending'
                     && request.resource.data.email is string
-                    && request.resource.data.name is string;
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() <= 80
+                    && request.resource.data.email.size() <= 120;
 
-      // Student নিজের profile update করতে পারবে কিন্তু role/status বদলাতে পারবে না
-      allow update: if (isSelf(userId)
-                       && request.resource.data.role   == resource.data.role
-                       && request.resource.data.status == resource.data.status)
-                    || isAdmin();
+      allow update: if (
+                      isSelf(userId)
+                      && smallPayload()
+                      && request.resource.data.role   == resource.data.role
+                      && request.resource.data.status == resource.data.status
+                      && request.resource.data.email  == resource.data.email
+                      && request.resource.data.createdAt == resource.data.createdAt
+                      && request.resource.data.enrolledCourses == resource.data.enrolledCourses
+                    ) || isAdmin();
 
       allow delete: if isAdmin();
     }
 
-    // ── COURSES (public read) ─────────────────────────────
+    // ── COURSES (public read for SEO/landing) ─────────────
     match /courses/{courseId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin() && smallPayload();
     }
 
-    // ── VIDEOS (only approved students + admin) ───────────
+    // ── VIDEOS (only approved + enrolled students; admin always) ─
+    // We can't check enrollment without an extra read; approved+signed-in is enforced.
+    // Per-course enrollment is also enforced client-side and at the URL level by
+    // ProtectedAdminRoute + VideoPlayerPage. Unauthenticated users get nothing.
     match /videos/{videoId} {
       allow read: if isApproved() || isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin() && smallPayload();
     }
 
     // ── ENROLL REQUESTS ───────────────────────────────────
+    // Anti-spam: payload size guard + only owner can create/re-submit.
     match /enrollRequests/{reqId} {
       allow read: if isAdmin()
                   || (isSignedIn() && resource.data.userId == request.auth.uid);
 
       allow create: if isSignedIn()
+                    && smallPayload()
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.status == 'pending'
-                    && request.resource.data.courseId is string;
+                    && request.resource.data.courseId is string
+                    && request.resource.data.courseId.size() <= 80
+                    && request.resource.data.transactionId is string
+                    && request.resource.data.transactionId.size() <= 80;
 
-      // Rejected request আবার pending করে re-submit
+      // Only re-submit a rejected request — nothing else from the student side.
       allow update: if isAdmin()
                     || (
                       isSignedIn()
+                      && smallPayload()
                       && resource.data.userId == request.auth.uid
                       && resource.data.status == 'rejected'
                       && request.resource.data.status == 'pending'
@@ -74,6 +96,12 @@ service cloud.firestore {
 
     // ── APP SETTINGS (public read, admin write) ──────────
     match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() && smallPayload();
+    }
+
+    // ── VERSIONS META (public read for cache-invalidation, admin write) ──
+    match /_meta/{docId} {
       allow read: if true;
       allow write: if isAdmin();
     }
