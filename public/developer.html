@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Credit</title>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', 'Hind Siliguri', sans-serif;
+            background-color: #fafafa;
+            color: #2d3748;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .credit-container {
+            width: 100%;
+            max-width: 1100px;
+            background-color: #ffffff;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .header-note {
+            text-align: center;
+            font-size: 14px;
+            color: #718096;
+            margin-bottom: 32px;
+            font-weight: 500;
+        }
+
+        .header-note i {
+            color: #7966fe;
+            margin-right: 4px;
+        }
+
+        /* Grid Setup */
+        .cards-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            width: 100%;
+        }
+
+        .card-column {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            width: 100%;
+        }
+
+        .card-body {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #7966fe;
+            flex-shrink: 0;
+        }
+
+        .profile-name {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 4px;
+        }
+
+        .profile-title {
+            font-size: 14px;
+            color: #7966fe;
+            font-weight: 600;
+        }
+
+        /* Alignment Area for Text and Content */
+        .details-section {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #4a5568;
+            margin-bottom: 24px;
+            padding-top: 12px;
+            border-top: 1px dashed #edf2f7;
+            flex-grow: 1; /* Ensures sections take equal height to align buttons underneath */
+        }
+
+        .details-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .social-links {
+            margin-bottom: 24px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .social-icon {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #f7fafc;
+            color: #4a5568;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+
+        .social-icon:hover {
+            background-color: #7966fe;
+            color: #ffffff;
+            border-color: #7966fe;
+        }
+
+        /* Split View Buttons (Perfect Row Alignment) */
+        .button-group {
+            display: flex;
+            width: 100%;
+            gap: 12px; /* Perfect split spacing */
+            margin-top: auto; /* Pushes to the absolute bottom of the card */
+        }
+
+        .btn-wrapper {
+            flex: 1; /* Gives exact 50% split width to both sides */
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            height: 46px; /* Uniform height ensures absolute identical alignment */
+        }
+
+        .btn-primary {
+            background-color: #7966fe;
+            color: #ffffff;
+            border: 1px solid #7966fe;
+        }
+
+        .btn-primary:hover {
+            background-color: #5b49df;
+            border-color: #5b49df;
+        }
+
+        .btn-secondary {
+            background-color: #ffffff;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f7fafc;
+            color: #1a202c;
+            border-color: #cbd5e0;
+        }
+
+        /* Desktop Layout (Side-by-Side and Equal Height) */
+        @media (min-width: 768px) {
+            body {
+                padding: 40px 20px;
+            }
+            .credit-container {
+                border-radius: 16px;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+                border: 1px solid #e2e8f0;
+                padding: 40px;
+            }
+            .cards-grid {
+                flex-direction: row;
+            }
+            .card-column {
+                flex: 1; /* Both columns take exact equal widths and heights */
+            }
+        }
+
+        /* Mobile Layout (Edge-to-Edge Full Bleed) */
+        @media (max-width: 480px) {
+            body {
+                background-color: #ffffff;
+            }
+            .credit-container {
+                padding: 16px 0;
+            }
+            .card-column {
+                border-left: none;
+                border-right: none;
+                border-radius: 0;
+                box-shadow: none;
+                border-top: 1px solid #e2e8f0;
+                border-bottom: 1px solid #e2e8f0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="credit-container">
+        <div class="header-note">
+            <i class="fa-solid fa-code"></i> This project is designed, developed and maintained by OnonnoBit.
+        </div>
+
+        <div class="cards-grid">
+            
+            <!-- Agency Card -->
+            <div class="card-column">
+                <div class="card-body">
+                    <div class="profile-section">
+                        <img src="https://ononnobit.vercel.app/icon.png" alt="OnonnoBit Agency" class="avatar" onerror="this.src='https://via.placeholder.com/64?text=OB'">
+                        <div>
+                            <h2 class="profile-name">OnonnoBit</h2>
+                            <p class="profile-title">Custom Web App Development Agency</p>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <span class="details-title">Our Services:</span>
+                        Custom web app development, LMS solution, E-commerce solution, Business solution, SEO, AEO, GEO.
+                    </div>
+
+                    <div class="social-links">
+                        <a href="mailto:ononnobit@gmail.com" class="social-icon" title="Email"><i class="fa-solid fa-envelope"></i></a>
+                        <a href="https://github.com/OnonnoBit" target="_blank" class="social-icon" title="GitHub"><i class="fa-brands fa-github"></i></a>
+                        <a href="https://www.linkedin.com/company/ononnobit" target="_blank" class="social-icon" title="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+                        <a href="https://wa.me/8801763822211" target="_blank" class="social-icon" title="WhatsApp Agency"><i class="fa-brands fa-whatsapp"></i></a>
+                    </div>
+
+                    <!-- Split View Buttons Zone -->
+                    <div class="button-group">
+                        <div class="btn-wrapper">
+                            <a href="https://ononnobit.vercel.app" target="_blank" class="btn btn-primary"><i class="fa-solid fa-globe"></i> Website</a>
+                        </div>
+                        <div class="btn-wrapper">
+                            <a href="https://www.google.com/search?q=OnonnoBit" target="_blank" class="btn btn-secondary"><i class="fa-brands fa-google"></i> Google</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Founder Card -->
+            <div class="card-column">
+                <div class="card-body">
+                    <div class="profile-section">
+                        <img src="https://ridoan-zisan.netlify.app/profile.jpg" alt="Md Ridoan Mahmud Zisan" class="avatar" onerror="this.src='https://via.placeholder.com/64?text=RZ'">
+                        <div>
+                            <h2 class="profile-name">Md Ridoan Mahmud Zisan</h2>
+                            <p class="profile-title">Founder @OnonnoBit</p>
+                        </div>
+                    </div>
+
+                    <div class="details-section">
+                        <span class="details-title">Tech Stack & Tools:</span>
+                        Frontend: (React (TS) + Vite + Tailwind + modern UI libs); Backend: (Firebase: authentication+backend); Hosting & Deployment: (GitHub, Vercel/Netlify)।
+                    </div>
+
+                    <div class="social-links">
+                        <a href="mailto:ridoan.zisan@gmail.com" class="social-icon" title="Email"><i class="fa-solid fa-envelope"></i></a>
+                        <a href="https://github.com/RidoanDev" target="_blank" class="social-icon" title="GitHub"><i class="fa-brands fa-github"></i></a>
+                        <a href="https://linkedin.com/in/ridoan-zisan" target="_blank" class="social-icon" title="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+                        <a href="https://wa.me/8801712525910" target="_blank" class="social-icon" title="WhatsApp Founder"><i class="fa-brands fa-whatsapp"></i></a>
+                    </div>
+
+                    <!-- Split View Buttons Zone -->
+                    <div class="button-group">
+                        <div class="btn-wrapper">
+                            <a href="https://ridoan-zisan.netlify.app" target="_blank" class="btn btn-primary"><i class="fa-solid fa-briefcase"></i> Portfolio</a>
+                        </div>
+                        <div class="btn-wrapper">
+                            <a href="https://www.google.com/search?q=Md+Ridoan+Mahmud+Zisan" target="_blank" class="btn btn-secondary"><i class="fa-brands fa-google"></i> Google</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
