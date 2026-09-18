@@ -1,0 +1,28 @@
+// =========================================================================
+// Firebase Realtime Database Security Rules for Darpan Academy Live Chat
+// Project: livechat-d
+// Database URL: https://livechat-d-default-rtdb.asia-southeast1.firebasedatabase.app
+// =========================================================================
+// Copy and paste the following rules into Firebase Console -> Realtime Database -> Rules tab:
+
+{
+  "rules": {
+    "chats": {
+      "$videoId": {
+        // Allow enrolled students / app users to read the live chat messages
+        ".read": true,
+        
+        // Allow posting messages to the active class room and admin cleanup
+        ".write": true,
+        
+        // Indexing for limitToLast query performance
+        ".indexOn": ["timestamp"],
+        
+        "$messageId": {
+          // Validate message schema: userId, userName, message (1-300 chars), timestamp
+          ".validate": "newData.hasChildren(['userId', 'userName', 'message', 'timestamp']) && newData.child('message').isString() && newData.child('message').val().length > 0 && newData.child('message').val().length <= 300 && newData.child('userName').isString() && newData.child('userId').isString() && newData.child('timestamp').isNumber()"
+        }
+      }
+    }
+  }
+}
